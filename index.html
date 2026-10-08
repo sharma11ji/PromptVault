@@ -442,6 +442,26 @@ button{cursor:pointer;border:none;background:none;font:inherit}
 }
 @media(max-width:480px){.pill{font-size:12px;height:28px;padding:0 11px}.search-kbd{display:none}}
 ::selection{background:rgba(0,0,0,.08)}
+/* Community feed: same monochrome palette as the library. */
+[hidden]{display:none!important}
+#community{scroll-margin-top:80px}.community-compose .btn-google{width:100%;padding:0 14px}.community-layout{display:grid;grid-template-columns:340px minmax(0,1fr);gap:28px;align-items:start}
+.community-compose,.community-card{border:1.5px solid var(--gray-100);border-radius:var(--radius-lg);background:var(--white);padding:24px}
+.community-compose{display:flex;flex-direction:column;gap:16px}
+.community-compose h3{font-size:20px}.community-note,.community-meta,.community-status{font-size:13px;color:var(--gray-600)}
+.community-compose form{display:flex;flex-direction:column;gap:14px}
+.community-compose textarea{height:180px;padding:12px 14px;resize:vertical;line-height:1.6}
+.community-feed{display:flex;flex-direction:column;gap:16px}
+.community-card h3{font-size:20px;overflow-wrap:anywhere;margin:12px 0}
+.community-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;overflow-wrap:anywhere}
+.community-text{white-space:pre-wrap;overflow-wrap:anywhere;font-family:'DM Mono',monospace;font-size:13px;line-height:1.8;background:var(--gray-50);padding:16px;border-radius:var(--radius-md);max-height:360px;overflow:auto}
+.community-actions{display:flex;justify-content:space-between;gap:12px;margin-top:16px}
+.community-delete{font-size:13px;color:#b42318;padding:8px;border-radius:8px}.community-delete:hover{background:#fff1f0}
+.community-status{padding:14px 16px;border:1px solid var(--gray-200);border-radius:12px;margin-bottom:18px}
+.community-status.error{color:#b42318;background:#fff8f7}.community-empty{padding:32px;text-align:center;border:1px dashed var(--gray-200);border-radius:18px}
+.community-identity{display:flex;flex-direction:column;gap:8px;overflow-wrap:anywhere}.community-signout{align-self:start;font-size:12px;text-decoration:underline;color:var(--gray-600)}
+.form-status{font-size:13px;color:var(--gray-600);min-height:20px;overflow-wrap:anywhere}.form-status.error{color:#b42318}
+button:disabled{cursor:wait;opacity:.55}.toast{white-space:normal;max-width:calc(100vw - 32px);text-align:center;border-radius:16px}
+@media(max-width:850px){.community-layout{grid-template-columns:1fr}.community-compose{padding:20px}}
 </style>
 </head>
 <body>
@@ -455,6 +475,7 @@ button{cursor:pointer;border:none;background:none;font:inherit}
     </a>
     <nav class="nav-center">
       <a href="#prompts" class="nav-link">Prompts</a>
+      <a href="#community" class="nav-link">Community</a>
       <a href="#apps"    class="nav-link">Apps</a>
       <a href="#about"   class="nav-link">About</a>
     </nav>
@@ -482,6 +503,30 @@ button{cursor:pointer;border:none;background:none;font:inherit}
     </div>
     <div class="pill-row" id="pillRow" role="group" aria-label="Filter prompts by category"></div>
   </div>
+</section>
+
+<!-- COMMUNITY: public reading, authenticated publishing -->
+<section class="section section-alt" id="community" aria-labelledby="communityTitle">
+ <div class="section-inner">
+  <div class="section-header"><h2 class="section-title" id="communityTitle">Community prompts</h2><span class="section-count" id="communityCount">Live feed</span></div>
+  <p id="feedStatus" class="community-status" role="status">Connecting to the community feed...</p>
+  <div class="community-layout">
+   <aside class="community-compose">
+    <h3>Post a prompt</h3>
+    <p class="community-note">Share something useful. Your prompt and display name will be visible to everyone.</p>
+    <div id="communityGuest"><p class="community-note">Browse freely. Sign in with Google to post your own prompts.</p><button class="btn-google" type="button" onclick="signInWithGoogle()">Continue with Google</button></div>
+    <div class="community-identity" id="communityIdentity" hidden><span id="communityUser"></span><button class="community-signout" type="button" onclick="signOutUser()">Sign out</button></div>
+    <form id="postForm" hidden>
+     <div class="field-group"><label class="field-label" for="postTitle">Title</label><input class="field-input" id="postTitle" name="title" required maxlength="120" placeholder="Give your prompt a title" /></div>
+     <div class="field-group"><label class="field-label" for="postCategory">Category</label><select class="field-input" id="postCategory" name="category" required><option value="">Choose a category</option><option>Image</option><option>Video</option><option>Web Gen</option><option>Code</option><option>Writing</option><option>3D Art</option><option>Music</option></select></div>
+     <div class="field-group"><label class="field-label" for="postText">Prompt text</label><textarea class="field-input" id="postText" name="text" required maxlength="20000" placeholder="Write the full prompt here..."></textarea></div>
+     <button class="btn-auth-submit" id="postSubmit" type="submit">Publish prompt</button>
+    </form>
+    <p id="postStatus" class="form-status" role="status" aria-live="polite"></p>
+   </aside>
+   <div><div class="community-feed" id="communityFeed" aria-label="Community prompt feed"></div><p class="community-empty community-note" id="communityEmpty" hidden>No community prompts yet. Be the first to share one.</p></div>
+  </div>
+ </div>
 </section>
 
 <!-- PROMPTS -->
@@ -600,7 +645,11 @@ button{cursor:pointer;border:none;background:none;font:inherit}
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 
 <script>
 /* ════════════════════════════════════════════════════════
@@ -851,10 +900,12 @@ const APPS = [
   { id:"APP-012", name:"Udio",             icon:"◎",  plan:"Freemium", category:"Music",    tagline:"High-fidelity AI music generation with genre, mood, and lyric controls.",         url:"https://udio.com" },
 ];
 
-/* Firebase Config — replace with your own */
-const FIREBASE_CONFIG = { apiKey:"YOUR_API_KEY", authDomain:"YOUR_PROJECT.firebaseapp.com",
-  projectId:"YOUR_PROJECT_ID", storageBucket:"YOUR_PROJECT.appspot.com",
-  messagingSenderId:"YOUR_SENDER_ID", appId:"YOUR_APP_ID" };
+/* Public Firebase web configuration. No analytics or AI services are loaded. */
+const FIREBASE_CONFIG = {
+ apiKey:"AIzaSyBWHieQ8kjAZucLJHbxaV-aZiUUpmjj388", authDomain:"prompt--vault.firebaseapp.com",
+ projectId:"prompt--vault", storageBucket:"prompt--vault.firebasestorage.app",
+ messagingSenderId:"347758385590", appId:"1:347758385590:web:8aae4513c3d6dce6790917", measurementId:"G-KMWZ0VYYFK"
+};
 
 /* ══════════════════════════════════════════
    APP LOGIC
@@ -862,7 +913,7 @@ const FIREBASE_CONFIG = { apiKey:"YOUR_API_KEY", authDomain:"YOUR_PROJECT.fireba
 let currentCategory="All", currentSearch="", currentPrompt=null, currentTab="login";
 
 document.addEventListener("DOMContentLoaded",()=>{
-  buildCategoryPills(); renderPrompts(); renderApps(); initFirebase();
+  buildCategoryPills(); renderPrompts(); renderApps(); document.getElementById("postForm").addEventListener("submit",publishPrompt); initFirebase();
   document.addEventListener("keydown",e=>{
     if((e.metaKey||e.ctrlKey)&&e.key==="k"){e.preventDefault();
       const i=document.getElementById("searchInput"); i.focus(); i.select();}
@@ -873,52 +924,128 @@ document.addEventListener("DOMContentLoaded",()=>{
   },{passive:true});
 });
 
-/* Firebase */
+/* Firebase and community posts. Firestore is the source of truth. */
+let communityPosts=[], communityUser=null, communityDB=null, communityAuth=null, feedLoaded=false;
+let posting=false, authPending=false;
+const deletingPosts=new Set();
+function setPostStatus(message,error=false){const el=document.getElementById('postStatus');el.textContent=message;el.classList.toggle('error',error);}
+function setFeedStatus(message,error=false){const el=document.getElementById('feedStatus');el.textContent=message;el.hidden=!message;el.classList.toggle('error',error);}
 function initFirebase(){
-  if(!FIREBASE_CONFIG.apiKey||FIREBASE_CONFIG.apiKey==="YOUR_API_KEY") return;
-  const s=document.createElement("script"); s.type="module";
-  s.textContent=`
-    import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import{getAuth,onAuthStateChanged,signInWithEmailAndPassword,
-      createUserWithEmailAndPassword,signOut,GoogleAuthProvider,signInWithPopup}
-      from"https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    const auth=getAuth(initializeApp(${JSON.stringify(FIREBASE_CONFIG)}));
-    window._fbAuth=auth;window._fbSI=signInWithEmailAndPassword;
-    window._fbSU=createUserWithEmailAndPassword;window._fbSO=signOut;
-    window._fbGP=new GoogleAuthProvider();window._fbGSI=signInWithPopup;
-    onAuthStateChanged(auth,u=>window._onAuth(u));`;
-  document.head.appendChild(s);
+ try{
+  if(!window.firebase) throw new Error('sdk-unavailable');
+  firebase.initializeApp(FIREBASE_CONFIG);
+  communityAuth=firebase.auth(); communityDB=firebase.firestore();
+  communityAuth.onAuthStateChanged(user=>{communityUser=user;updateCommunityAuth();},()=>setPostStatus('Sign-in is unavailable right now. Please refresh and try again.',true));
+  communityDB.collection('prompts').orderBy('createdAt','desc').onSnapshot({includeMetadataChanges:true},snapshot=>{
+   communityPosts=snapshot.docs.map(doc=>({...doc.data({serverTimestamps:'estimate'}),id:doc.id}));
+   feedLoaded=true; renderCommunity();
+   setFeedStatus(snapshot.metadata.fromCache?'Showing cached prompts. Waiting for a live connection...':'');
+  },error=>{
+   setFeedStatus(error.code==='permission-denied'?'The community feed is not available yet. Its database read permissions need to be enabled.':'The community feed could not connect. Please check your connection and refresh.',true);
+  });
+ }catch(error){setFeedStatus('The community feed could not load. Please check your connection and refresh.',true);setPostStatus('Sign-in is unavailable right now. The built-in library still works.',true);}
+ window.addEventListener('offline',()=>setFeedStatus('You are offline. Reconnect to see the latest community prompts.'));
+ window.addEventListener('online',()=>setFeedStatus('Reconnecting to the community feed...'));
 }
-window._onAuth=function(user){
-  const btn=document.getElementById("authBtn"),txt=document.getElementById("authBtnText");
-  if(user){const n=user.displayName?user.displayName.split(" ")[0]:user.email.split("@")[0];
-    txt.textContent=n; btn.classList.add("signed-in");
-    btn.onclick=()=>window._fbSO(window._fbAuth).then(()=>showToast("Signed out."));
-  } else {txt.textContent="Sign In";btn.classList.remove("signed-in");btn.onclick=openAuthModal;}
-};
+function updateCommunityAuth(){
+ const user=communityUser,btn=document.getElementById('authBtn');
+ document.getElementById('authBtnText').textContent=user?'Sign out':'Sign In';
+ btn.classList.toggle('signed-in',!!user);btn.onclick=user?signOutUser:openAuthModal;
+ document.getElementById('communityGuest').hidden=!!user;
+ document.getElementById('communityIdentity').hidden=!user;
+ document.getElementById('postForm').hidden=!user;
+ document.getElementById('communityUser').textContent=user?'Signed in as '+(user.displayName||'Community member'):'';
+ document.getElementById('postSubmit').disabled=posting||!user;
+ if(user)closeModal('authModal');
+ renderCommunity();
+}
+async function signOutUser(){
+ try{await communityAuth.signOut();setPostStatus('');showToast('Signed out. You can still browse all prompts.');}
+ catch(error){showToast('Could not sign out. Please try again.','error');}
+}
 async function handleAuth(){
-  const email=document.getElementById("emailInput").value.trim();
-  const pass=document.getElementById("passwordInput").value;
-  const errEl=document.getElementById("authError"); errEl.textContent="";
-  if(!window._fbAuth){errEl.textContent="Firebase not configured. Add config to data.js.";return;}
-  const btn=document.getElementById("authSubmit"); btn.disabled=true;
-  document.getElementById("authSubmitText").textContent="…";
-  try{
-    currentTab==="login"?await window._fbSI(window._fbAuth,email,pass)
-                        :await window._fbSU(window._fbAuth,email,pass);
-    closeModal("authModal"); showToast(currentTab==="login"?"Welcome back! 👋":"Account created! ✦");
-  } catch(e){errEl.textContent=fbErr(e.code);}
-  finally{btn.disabled=false; document.getElementById("authSubmitText").textContent=currentTab==="login"?"Sign In":"Create Account";}
+ const err=document.getElementById('authError');err.textContent='';
+ if(!communityAuth){err.textContent='Sign-in is still loading. Please try again in a moment.';return;}
+ const email=document.getElementById('emailInput').value.trim(),pass=document.getElementById('passwordInput').value;
+ const btn=document.getElementById('authSubmit');btn.disabled=true;
+ try{
+  if(currentTab==='login')await communityAuth.signInWithEmailAndPassword(email,pass);
+  else{
+   const result=await communityAuth.createUserWithEmailAndPassword(email,pass);
+   const name=document.getElementById('nameInput').value.trim();
+   if(name){await result.user.updateProfile({displayName:name});updateCommunityAuth();}
+  }
+  closeModal('authModal');showToast('Signed in. You can now share a prompt.');
+ }catch(error){err.textContent=fbErr(error.code);}
+ finally{btn.disabled=false;}
 }
 async function signInWithGoogle(){
-  if(!window._fbAuth){showToast("Firebase not configured.","error");return;}
-  try{await window._fbGSI(window._fbAuth,window._fbGP);closeModal("authModal");showToast("Signed in with Google ✦");}
-  catch(e){document.getElementById("authError").textContent=fbErr(e.code);}
+ if(authPending)return;
+ if(!communityAuth){setPostStatus('Sign-in is still loading. Please try again in a moment.',true);showToast('Sign-in is not ready yet. Please try again.','error');return;}
+ authPending=true;document.getElementById('authError').textContent='';setPostStatus('Opening Google sign-in...');
+ try{await communityAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider());closeModal('authModal');setPostStatus('');showToast('Signed in with Google. You can now share a prompt.');}
+ catch(error){const message=fbErr(error.code);document.getElementById('authError').textContent=message;setPostStatus(message,true);showToast(message,'error');}
+ finally{authPending=false;}
 }
-function fbErr(c){return({"auth/invalid-email":"Invalid email.","auth/user-not-found":"No account found.",
-  "auth/wrong-password":"Incorrect password.","auth/email-already-in-use":"Email already in use.",
-  "auth/weak-password":"Password must be 6+ characters.","auth/too-many-requests":"Too many attempts.",
-  "auth/popup-closed-by-user":"Popup closed.","auth/invalid-credential":"Invalid credentials."})[c]||"Something went wrong.";}
+function fbErr(code){return({
+ 'auth/popup-blocked':'Your browser blocked the sign-in window. Allow popups for this site, then try again.',
+ 'auth/popup-closed-by-user':'Sign-in was cancelled. You can try again whenever you are ready.',
+ 'auth/cancelled-popup-request':'A sign-in window is already open. Please finish there.',
+ 'auth/unauthorized-domain':'Google sign-in is not enabled for this preview address. You can still browse prompts.',
+ 'auth/operation-not-allowed':'This sign-in method is not enabled yet. Please use Google sign-in.',
+ 'auth/network-request-failed':'Could not connect to sign-in. Please check your connection and try again.',
+ 'auth/invalid-email':'Please enter a valid email address.',
+ 'auth/email-already-in-use':'This email already has an account. Please sign in instead.',
+ 'auth/weak-password':'Use a password with at least 6 characters.',
+ 'auth/invalid-credential':'The email or password is incorrect.',
+ 'auth/too-many-requests':'Too many sign-in attempts. Please try again later.'
+})[code]||'Sign-in did not finish. Please try again.';}
+async function publishPrompt(event){
+ event.preventDefault();if(posting)return;
+ const user=communityAuth&&communityAuth.currentUser;
+ if(!user){setPostStatus('Please sign in with Google before posting a prompt.',true);openAuthModal();return;}
+ const title=document.getElementById('postTitle').value.trim(),category=document.getElementById('postCategory').value,text=document.getElementById('postText').value.trim();
+ if(!title||!text||title.length>120||text.length>20000||!['Image','Video','Web Gen','Code','Writing','3D Art','Music'].includes(category)){setPostStatus('Add a title, choose a category, and write your prompt before posting.',true);return;}
+ if(!navigator.onLine){setPostStatus('You are offline. Reconnect before publishing your prompt.',true);return;}
+ posting=true;document.getElementById('postSubmit').disabled=true;setPostStatus('Publishing your prompt...');
+ try{
+  await communityDB.collection('prompts').add({title,category,text,authorId:user.uid,authorName:user.displayName||'Community member',createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+  document.getElementById('postForm').reset();setPostStatus('Your prompt is published.');showToast('Prompt published.');
+ }catch(error){setPostStatus(error.code==='permission-denied'?'Your prompt was not published. Sign in again and try once more.':'Your prompt was not published. Please check your connection and try again. Your text is still here.',true);}
+ finally{posting=false;document.getElementById('postSubmit').disabled=!communityUser;}
+}
+function renderCommunity(){
+ const grid=document.getElementById('communityFeed');if(!grid)return;grid.replaceChildren();
+ const filtered=communityPosts.filter(p=>[p.title,p.text,p.category].every(v=>typeof v==='string')).filter(p=>(currentCategory==='All'||p.category===currentCategory)&&(!currentSearch||[p.title,p.text,p.category,p.authorName].some(v=>typeof v==='string'&&v.toLowerCase().includes(currentSearch))));
+ document.getElementById('communityCount').textContent=filtered.length+' community prompt'+(filtered.length===1?'':'s');
+ const empty=document.getElementById('communityEmpty');empty.hidden=!feedLoaded||!!filtered.length;
+ empty.textContent=communityPosts.length?'No community prompts match your search.':'No community prompts yet. Be the first to share one.';
+ for(const post of filtered){
+  const card=document.createElement('article');card.className='community-card';
+  const meta=document.createElement('div');meta.className='community-meta';
+  const name=document.createElement('span');name.textContent=typeof post.authorName==='string'?post.authorName:'Community member';
+  const time=document.createElement('time');const date=post.createdAt&&typeof post.createdAt.toDate==='function'?post.createdAt.toDate():null;
+  if(date&&!Number.isNaN(date.getTime())){time.dateTime=date.toISOString();time.textContent=date.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});}else time.textContent='Publishing...';
+  const category=document.createElement('span');category.className='tag';category.textContent=post.category;
+  meta.append(name,document.createTextNode('·'),time,category);
+  const title=document.createElement('h3');title.textContent=post.title;
+  const text=document.createElement('p');text.className='community-text';text.textContent=post.text;
+  const actions=document.createElement('div');actions.className='community-actions';
+  const copy=document.createElement('button');copy.className='btn-copy';copy.type='button';copy.textContent='Copy prompt';copy.onclick=async()=>{try{await navigator.clipboard.writeText(post.text);showToast('Prompt copied.');}catch{showToast('Copy failed. Select and copy the prompt text.','error');}};actions.append(copy);
+  if(communityUser&&communityUser.uid===post.authorId){const remove=document.createElement('button');remove.type='button';remove.className='community-delete';remove.textContent=deletingPosts.has(post.id)?'Deleting...':'Delete';remove.disabled=deletingPosts.has(post.id);remove.onclick=()=>deleteCommunityPrompt(post);actions.append(remove);}
+  card.append(meta,title,text,actions);grid.append(card);
+ }
+}
+async function deleteCommunityPrompt(post){
+ const user=communityAuth&&communityAuth.currentUser;
+ if(!user||user.uid!==post.authorId){showToast('Only the author can delete this prompt.','error');return;}
+ if(deletingPosts.has(post.id)||!confirm('Delete your prompt "'+post.title+'"? This cannot be undone.'))return;
+ if(!navigator.onLine){showToast('Reconnect before deleting your prompt.','error');return;}
+ deletingPosts.add(post.id);renderCommunity();
+ try{await communityDB.collection('prompts').doc(post.id).delete();showToast('Prompt deleted.');}
+ catch(error){showToast('Could not delete your prompt. Please try again.','error');}
+ finally{deletingPosts.delete(post.id);renderCommunity();}
+}
 
 /* Pills */
 function buildCategoryPills(){
@@ -930,9 +1057,9 @@ function buildCategoryPills(){
 function filterCategory(btn,cat){
   currentCategory=cat;
   document.querySelectorAll(".pill").forEach(p=>p.classList.remove("active"));
-  btn.classList.add("active"); renderPrompts();
+  btn.classList.add("active"); renderPrompts(); renderCommunity();
 }
-function handleSearch(){currentSearch=document.getElementById("searchInput").value.toLowerCase().trim();renderPrompts();}
+function handleSearch(){currentSearch=document.getElementById("searchInput").value.toLowerCase().trim();renderPrompts();renderCommunity();}
 function getFiltered(){
   return PROMPTS.filter(p=>{
     const mc=currentCategory==="All"||p.category===currentCategory;
