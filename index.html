@@ -683,7 +683,6 @@ button:disabled{cursor:wait;opacity:.55}.toast{white-space:normal;max-width:calc
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
 
 <script>
 /* ════════════════════════════════════════════════════════
@@ -937,7 +936,7 @@ const APPS = [
 /* Public Firebase web configuration. No analytics or AI services are loaded. */
 const FIREBASE_CONFIG = {
  apiKey:"AIzaSyBWHieQ8kjAZucLJHbxaV-aZiUUpmjj388", authDomain:"prompt--vault.firebaseapp.com",
- projectId:"prompt--vault", storageBucket:"prompt--vault.firebasestorage.app",
+ projectId:"prompt--vault",
  messagingSenderId:"347758385590", appId:"1:347758385590:web:8aae4513c3d6dce6790917", measurementId:"G-KMWZ0VYYFK"
 };
 
@@ -961,7 +960,7 @@ document.addEventListener("DOMContentLoaded",()=>{
 /* Firebase and community posts. Firestore is the source of truth. */
 let communityPosts=[], communityUser=null, communityDB=null, communityAuth=null, feedLoaded=false;
 let posting=false, authPending=false, selectedMedia=null, mediaPreviewUrl=null, uploadedMedia=null;
-// Conservative client caps. Published Storage rules remain the final authority.
+// Conservative client caps. The Cloudinary upload preset also controls accepted uploads.
 const MEDIA_LIMITS={image:5*1024*1024,video:20*1024*1024};
 function mediaKind(file){return file&&file.type.startsWith('image/')?'image':file&&file.type.startsWith('video/')?'video':null;}
 function mediaValidation(file){
@@ -992,13 +991,22 @@ function setPostingBusy(busy){
  document.getElementById('postSubmit').disabled=busy||!communityUser;
  document.getElementById('postSubmit').textContent=busy?'Publishing...':'Publish prompt';
 }
-function storageError(code){return({
- 'storage/unauthorized':'The attachment could not upload. Storage permissions may not be enabled yet, or this file exceeds the allowed size. Try a smaller file or publish without it.',
- 'storage/unauthenticated':'Please sign in again before uploading an attachment.',
- 'storage/quota-exceeded':'Media uploads are unavailable right now. Try later or publish without an attachment.',
- 'storage/retry-limit-exceeded':'The upload timed out. Check your connection and try again.',
- 'storage/canceled':'The upload was cancelled. Your prompt text is still here.'
-})[code]||'The attachment could not upload. Check your connection, try a smaller photo or video, or publish without it. Your text is still here.';}
+function mediaUploadError(error){
+ if(error.name==='AbortError')return 'The upload timed out. Check your connection and try again. Your text is still here.';
+ if(error.status===429)return 'Media uploads are unavailable right now. Try later or publish without an attachment. Your text is still here.';
+ return 'The attachment could not upload. Check your connection, try a smaller photo or video, or publish without it. Your text is still here.';
+}
+async function uploadCommunityMedia(file){
+ const form=new FormData();form.append('file',file);form.append('upload_preset','promptvault');
+ const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),120000);
+ try{
+  const response=await fetch('https://api.cloudinary.com/v1_1/qgdozjut/auto/upload',{method:'POST',body:form,signal:controller.signal});
+  if(!response.ok){const error=new Error('media-upload-failed');error.status=response.status;throw error;}
+  const result=await response.json();
+  if(!safeMediaUrl(result.secure_url)||!['image','video'].includes(result.resource_type))throw new Error('invalid-media-response');
+  return {mediaUrl:result.secure_url,mediaType:result.resource_type};
+ }finally{clearTimeout(timeout);}
+}
 function toggleProfileMenu(){
  const menu=document.getElementById('profileMenu');menu.hidden=!menu.hidden;document.getElementById('authBtn').setAttribute('aria-expanded',String(!menu.hidden));
  if(!menu.hidden)document.getElementById('headerSignOut').focus();
@@ -1100,18 +1108,9 @@ async function publishPrompt(event){
   const data={title,category,text,authorId:user.uid,authorName:user.displayName||'Community member',createdAt:firebase.firestore.FieldValue.serverTimestamp()};
   if(file){
    if(!uploadedMedia||uploadedMedia.file!==file||uploadedMedia.uid!==user.uid){
-    if(!firebase.storage)throw new Error('storage-unavailable');
-    // No original filename in the path. All client uploads stay under prompt-media/.
-    const id=communityDB.collection('prompts').doc().id;
-    const ref=firebase.storage().ref('prompt-media/'+user.uid+'/'+id);
-    const task=ref.put(file,{contentType:file.type});
     setPostStatus('Uploading your attachment...');
-    await new Promise((resolve,reject)=>task.on('state_changed',snapshot=>{
-     const progress=snapshot.totalBytes?Math.round(snapshot.bytesTransferred/snapshot.totalBytes*100):0;
-     setPostStatus('Uploading your attachment... '+progress+'%');
-    },reject,resolve));
-    const mediaUrl=await ref.getDownloadURL();
-    uploadedMedia={file,uid:user.uid,mediaUrl,mediaType:mediaKind(file)};
+    const media=await uploadCommunityMedia(file);
+    uploadedMedia={file,uid:user.uid,...media};
    }
    data.mediaUrl=uploadedMedia.mediaUrl;data.mediaType=uploadedMedia.mediaType;
   }
@@ -1120,7 +1119,7 @@ async function publishPrompt(event){
   setPostStatus('Publishing your prompt...');
   await communityDB.collection('prompts').add(data);
   document.getElementById('postForm').reset();clearMedia();setPostStatus('Your prompt is published.');showToast('Prompt published.');
- }catch(error){setPostStatus(phase==='upload'?storageError(error.code):error.code==='permission-denied'?'Your prompt was not published. Sign in again and try once more. Your text is still here.':'Your prompt was not published. Please check your connection and try again. Your text is still here.',true);}
+ }catch(error){setPostStatus(phase==='upload'?mediaUploadError(error):error.code==='permission-denied'?'Your prompt was not published. Sign in again and try once more. Your text is still here.':'Your prompt was not published. Please check your connection and try again. Your text is still here.',true);}
  finally{posting=false;setPostingBusy(false);}
 
 }
