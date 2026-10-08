@@ -257,6 +257,12 @@ button{cursor:pointer;border:none;background:none;font:inherit}
 /* ── Media Preview Area ── */
 .card-media{position:relative;width:100%;height:200px;overflow:hidden;background:var(--gray-100);flex-shrink:0}
 
+/* Photo cards: full photo at its natural aspect ratio, never cropped */
+.card-media-photo{height:auto}
+.card-media-photo img{width:100%;height:auto;object-fit:contain;display:block;
+  transition:filter .3s}
+.prompt-card:hover .card-media-photo img{transform:none;filter:brightness(.97)}
+
 /* Image cards */
 .card-media img{width:100%;height:100%;object-fit:cover;
   transition:transform .5s var(--trans),filter .3s;display:block}
@@ -321,6 +327,22 @@ button{cursor:pointer;border:none;background:none;font:inherit}
 .empty-state{display:flex;flex-direction:column;align-items:center;padding:80px 0;
   color:var(--gray-400);gap:12px}
 .empty-icon{font-size:40px;font-weight:300}
+
+/* ── Vote buttons (same behavior as the Community page) ── */
+.vote-group{display:flex;gap:8px;align-items:center}
+.vote-btn{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:0 14px;
+  border-radius:100px;background:var(--white);border:1.5px solid var(--gray-200);
+  font-family:inherit;font-size:13px;font-weight:500;color:var(--black);cursor:pointer;
+  transition:background .18s,border-color .18s,color .18s}
+.vote-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.vote-btn:hover{border-color:var(--black)}.vote-btn:focus-visible{outline:2px solid var(--black);outline-offset:3px}
+.vote-btn[aria-pressed="true"]{background:var(--black);color:var(--white);border-color:var(--black)}
+.vote-btn[aria-pressed="true"] svg{fill:currentColor}.vote-btn:disabled{opacity:.6}
+.card-author{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:500;
+  color:var(--gray-400);min-width:0;max-width:55%}
+.card-author img{width:18px;height:18px;border-radius:50%;object-fit:cover;flex-shrink:0}
+.card-author span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:480px){.vote-btn{min-height:40px;padding:0 12px;gap:5px}.vote-group{gap:6px}}
 
 /* ═══════════════════════════════════════
    APP CARDS
@@ -488,7 +510,7 @@ button{cursor:pointer;border:none;background:none;font:inherit}
   <div class="hero-inner">
     <div class="hero-badge">Library v2.0 — 2025</div>
     <h1 class="hero-title">The finest<br /><em>AI prompts</em><br />in one place.</h1>
-    <p class="hero-sub">Curated prompts for image, video, code &amp; beyond.<br />Click any card to see the full prompt and copy it.</p>
+    <p class="hero-sub">Prompts shared by the community, newest first. <br />Click any card to see the full prompt and copy it.</p>
     <div class="search-wrap" role="search">
       <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
         <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
@@ -623,240 +645,11 @@ button{cursor:pointer;border:none;background:none;font:inherit}
 
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 
 <script>
-/* ════════════════════════════════════════════════════════
-   DATA — Sirf yahan edit karo naye prompts/apps ke liye
-   ════════════════════════════════════════════════════════
-
-   PROMPT SCHEMA:
-   {
-     id       : "PV-001"
-     category : "Image" | "Video" | "Web Gen" | "Code" | "Writing" | "3D Art" | "Music"
-     title    : "Short title"
-     tags     : ["tag1","tag2"]
-     preview  : {
-       type    : "image" | "video" | "icon"
-       // For image: url (Unsplash full URL)
-       // For video: url (direct mp4 URL), poster (thumbnail URL)
-       // For icon : glyph (emoji/char), bg (CSS class), color (hex)
-     }
-     prompt   : "Full prompt text"
-   }
-*/
-
-const PROMPTS = [
-
-  // ════════ IMAGE ════════
-  {
-    id:"PV-001", category:"Image", title:"Cinematic Portrait",
-    tags:["portrait","lighting","film"],
-    preview:{
-      type:"image",
-      url:"https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=640&q=80&fit=crop"
-    },
-    prompt:"A hyper-realistic cinematic portrait of a woman with striking eyes, shot on a Leica M11, f/1.4 aperture, golden hour side-lighting, shallow depth of field, Kodak Portra 400 film grain, editorial magazine quality, ultra-detailed skin texture, muted warm tones."
-  },
-  {
-    id:"PV-002", category:"Image", title:"Brutalist Architecture",
-    tags:["architecture","brutalism","urban"],
-    preview:{
-      type:"image",
-      url:"https://images.unsplash.com/photo-1486325212027-8081e485255e?w=640&q=80&fit=crop"
-    },
-    prompt:"Monumental brutalist concrete building photographed at dawn, harsh geometric shadows, Soviet-era proportions, extreme wide-angle lens distortion, overcast sky with dramatic clouds, raw exposed concrete texture, black and white with subtle sepia tone, award-winning architectural photography."
-  },
-  {
-    id:"PV-003", category:"Image", title:"Abstract Fluid Art",
-    tags:["abstract","fluid","colorful"],
-    preview:{
-      type:"image",
-      url:"https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=640&q=80&fit=crop"
-    },
-    prompt:"Macro photograph of liquid chromatic paint swirling in water, iridescent oil slick colours — deep teal, magenta, gold — perfectly blended in slow-motion freeze, ultra high resolution 8K, smooth bokeh background, studio product lighting, otherworldly ethereal quality."
-  },
-  {
-    id:"PV-004", category:"Image", title:"Neon Cyberpunk City",
-    tags:["cyberpunk","neon","nighttime"],
-    preview:{
-      type:"image",
-      url:"https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=640&q=80&fit=crop"
-    },
-    prompt:"Futuristic cyberpunk megacity at night, rain-soaked streets reflecting neon kanji signs, a lone figure in a trench coat, volumetric fog, blade runner aesthetic, photorealistic rendering, Sony A7R IV, 24mm lens, ISO 3200, extreme depth, cinematic color grading."
-  },
-  {
-    id:"PV-005", category:"Image", title:"Minimalist Still Life",
-    tags:["minimalist","still life","product"],
-    preview:{
-      type:"image",
-      url:"https://images.unsplash.com/photo-1556742208-999815fca738?w=640&q=80&fit=crop"
-    },
-    prompt:"Minimalist product still life — a single translucent glass sculpture on a white marble surface, soft diffused studio light from the left, barely-there shadow, clean white background, 8K medium format, aspirational luxury aesthetic, breathing room composition."
-  },
-
-  // ════════ VIDEO ════════
-  {
-    id:"PV-006", category:"Video", title:"Slow-Mo Nature Reveal",
-    tags:["nature","slow motion","cinematic"],
-    preview:{
-      type:"video",
-      url:"https://videos.pexels.com/video-files/857251/857251-hd_1920_1080_25fps.mp4",
-      poster:"https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=640&q=80&fit=crop"
-    },
-    prompt:"Extreme slow-motion drone pull-back over a misty Norwegian fjord at sunrise, camera begins inches from glassy water surface then rises 300 meters, golden light breaking through mountain silhouettes, 4K 240fps, cinematic lensflare."
-  },
-  {
-    id:"PV-007", category:"Video", title:"Product Unboxing Intro",
-    tags:["product","unboxing","brand"],
-    preview:{
-      type:"video",
-      url:"https://videos.pexels.com/video-files/3015538/3015538-uhd_2732_1440_24fps.mp4",
-      poster:"https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=640&q=80&fit=crop"
-    },
-    prompt:"Cinematic luxury product unboxing sequence, matte black box slowly opens to reveal a glowing object inside, particle dust floats upward, tight macro shots of texture, clean white studio environment, 60fps, Apple product launch aesthetic, subtle orchestral score, 10-second loop."
-  },
-  {
-    id:"PV-008", category:"Video", title:"Abstract Loop Animation",
-    tags:["abstract","loop","motion"],
-    preview:{
-      type:"video",
-      url:"https://videos.pexels.com/video-files/3129957/3129957-uhd_2560_1440_30fps.mp4",
-      poster:"https://images.unsplash.com/photo-1557672172-298e090bd0f1?w=640&q=80&fit=crop"
-    },
-    prompt:"Seamlessly looping abstract 3D animation — chrome spheres orbiting a pulsing black monolith, gravitational distortion effect, deep space background with subtle nebula, Blender-rendered photorealistic materials, 4K 60fps, total duration 8 seconds, perfect loop point."
-  },
-
-  // ════════ WEB GEN ════════
-  {
-    id:"PV-009", category:"Web Gen", title:"SaaS Landing Page",
-    tags:["landing page","saas","conversion"],
-    preview:{
-      type:"image",
-      url:"https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=640&q=80&fit=crop"
-    },
-    prompt:"Build a high-converting SaaS landing page with React and Tailwind CSS. Include: a bold hero with an animated gradient headline, a feature bento grid section, a social proof ticker, a pricing comparison table with a highlighted recommended plan, and a sticky CTA bar. Animations via Framer Motion. Mobile-first responsive. Dark mode support."
-  },
-  {
-    id:"PV-010", category:"Web Gen", title:"Dashboard UI Kit",
-    tags:["dashboard","admin","UI"],
-    preview:{
-      type:"image",
-      url:"https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=640&q=80&fit=crop"
-    },
-    prompt:"Generate a complete admin dashboard UI using Next.js 14 and Shadcn/UI. Include: a collapsible left sidebar with icon navigation, a stats overview row with animated counters, a data table with sorting and pagination, a real-time line chart using Recharts, and a dark/light mode toggle. TypeScript strict mode."
-  },
-
-  // ════════ CODE ════════
-  {
-    id:"PV-011", category:"Code", title:"REST API Scaffold",
-    tags:["nodejs","api","backend"],
-    preview:{
-      type:"icon",
-      glyph:"{ }",
-      bg:"icon-bg-code",
-      color:"#00ff88"
-    },
-    prompt:"Scaffold a production-ready REST API in Node.js with Express. Include: JWT authentication middleware, rate limiting, input validation with Zod, a structured error handler returning RFC 7807 problem detail objects, Prisma ORM connected to PostgreSQL, Docker compose file, and a full Postman collection. Use ES modules, async/await throughout, and add JSDoc comments."
-  },
-  {
-    id:"PV-012", category:"Code", title:"React Custom Hook",
-    tags:["react","hooks","typescript"],
-    preview:{
-      type:"icon",
-      glyph:"⚛",
-      bg:"icon-bg-code",
-      color:"#61dafb"
-    },
-    prompt:"Write a reusable TypeScript React custom hook `usePaginatedFetch<T>` that accepts a base URL and page size, handles loading/error/success states, supports infinite scroll (IntersectionObserver), request deduplication, and optional SWR-style cache via useRef. Export full TypeScript types. Include a concise usage example component."
-  },
-
-  // ════════ WRITING ════════
-  {
-    id:"PV-013", category:"Writing", title:"Product Launch Email",
-    tags:["email","copywriting","marketing"],
-    preview:{
-      type:"icon",
-      glyph:"✉",
-      bg:"icon-bg-writing",
-      color:"#333"
-    },
-    prompt:"Write a product launch email for a B2B SaaS tool. Tone: confident, direct, no hype. Structure: (1) a one-sentence bold subject line under 50 chars; (2) 3-line preview text; (3) headline leading with the customer's outcome; (4) three bullet benefits framed as 'before vs after'; (5) a single, specific CTA. Keep total word count under 180 words."
-  },
-  {
-    id:"PV-014", category:"Writing", title:"Thread Hook Formula",
-    tags:["twitter","thread","growth"],
-    preview:{
-      type:"icon",
-      glyph:"𝕏",
-      bg:"icon-bg-writing",
-      color:"#000"
-    },
-    prompt:"Write a 10-tweet Twitter/X thread on the topic: [INSERT TOPIC]. Start with a counter-intuitive hook that stops the scroll. Each tweet must end on a micro-cliffhanger. Tweet 5 is a bold standalone stat or quote. Final tweet is a call to follow and a 1-sentence summary. Punchy. No emojis. Max 240 chars per tweet."
-  },
-
-  // ════════ 3D ART ════════
-  {
-    id:"PV-015", category:"3D Art", title:"Isometric Game Scene",
-    tags:["isometric","game art","3D"],
-    preview:{
-      type:"image",
-      url:"https://images.unsplash.com/photo-1542751371-adc38448a05e?w=640&q=80&fit=crop"
-    },
-    prompt:"Isometric 3D render of a cozy fantasy village scene — cobblestone paths, glowing lanterns, a small blacksmith shop with animated smoke, lush pixel-perfect grass tiles, tiny NPC characters mid-action, warm sunset palette of amber and lilac, Stardew Valley meets Ghibli aesthetic, crisp sharp render, 4K square format."
-  },
-  {
-    id:"PV-016", category:"3D Art", title:"Luxury Watch Render",
-    tags:["product","watch","luxury"],
-    preview:{
-      type:"image",
-      url:"https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=640&q=80&fit=crop"
-    },
-    prompt:"Photorealistic Blender Cycles render of a luxury tourbillon wristwatch floating against a jet-black void, 3-point studio lighting with a key highlight on the caseback, macro lens bloom on the sapphire crystal, brushed and polished metal surfaces, reflection mapping at 100%, 8K resolution."
-  },
-
-  // ════════ MUSIC ════════
-  {
-    id:"PV-017", category:"Music", title:"Lo-Fi Chill Beat",
-    tags:["lo-fi","hip hop","instrumental"],
-    preview:{
-      type:"video",
-      url:"https://videos.pexels.com/video-files/4253925/4253925-uhd_2560_1440_25fps.mp4",
-      poster:"https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=640&q=80&fit=crop"
-    },
-    prompt:"Generate a lo-fi hip-hop instrumental: 90 BPM, swung 16th notes, vinyl crackle layer, a jazzy piano loop sampled at 70% pitch, muffled kick on beats 1 and 3, rim-shot snare on 2 and 4, soft Rhodes chord stabs every 4 bars, a 4-bar bassline walking in Dm, total length 3 minutes."
-  },
-  {
-    id:"PV-018", category:"Music", title:"Cinematic Trailer Score",
-    tags:["cinematic","trailer","orchestral"],
-    preview:{
-      type:"icon",
-      glyph:"♫",
-      bg:"icon-bg-music",
-      color:"#c084fc"
-    },
-    prompt:"Compose a 90-second epic orchestral trailer cue: starts with a solo cello line in C minor, builds with string ostinatos at bar 8, brass hits on beat 1 of every 2 bars from bar 16, a full choir enters at bar 24 with a single 'Aah', massive percussion swell in the final 15 seconds, ends on a resonant low C pedal tone."
-  },
-
-  // ════════ IMAGE — more ════════
-  {
-    id:"PV-019", category:"Image", title:"Golden Desert Dunes",
-    tags:["desert","landscape","golden hour"],
-    preview:{
-      type:"image",
-      url:"https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=640&q=80&fit=crop"
-    },
-    prompt:"Vast Saharan sand dunes at golden hour, dramatic side-lighting casting long sharp shadows across perfect rippled sand, a lone camel silhouette on the ridge, 4:5 aspect ratio, shot on Phase One XF IQ4 150MP, ultra-sharp detail, warm amber and ochre palette, no sky — just sand and shadow."
-  },
-  {
-    id:"PV-020", category:"Image", title:"Underwater Kingdom",
-    tags:["underwater","fantasy","ocean"],
-    preview:{
-      type:"image",
-      url:"https://images.unsplash.com/photo-1518020382113-a7e8fc38eac9?w=640&q=80&fit=crop"
-    },
-    prompt:"Ethereal underwater scene — ancient sunken ruins covered in luminescent coral, schools of neon fish weaving through broken marble columns, shafts of turquoise light piercing from above, photorealistic CGI render, 8K, inspired by James Cameron's aquatic cinematography, cinematic color grade in blue-teal tones."
-  }
-];
+/* Community prompts load live from Firestore (collection 'prompts', same as community.html).
+   New posts appear here automatically; nothing in this file needs editing. */
 
 const APPS = [
   { id:"APP-001", name:"Midjourney",       icon:"🎨", plan:"Paid",     category:"Image",    tagline:"The leading AI image generation platform with unparalleled aesthetic quality.",        url:"https://midjourney.com" },
@@ -884,9 +677,12 @@ const FIREBASE_CONFIG = {
    APP LOGIC
    ══════════════════════════════════════════ */
 let currentCategory="All", currentSearch="", currentPrompt=null, currentTab="login";
+let FEED=[], feedLoaded=false, feedError="";
+let communityDB=null;
+let voteMap=new Map(), votesLoaded=false; const votePending=new Set();
 
 document.addEventListener("DOMContentLoaded",()=>{
-  buildCategoryPills(); renderPrompts(); renderApps(); initHomeAuth();
+  buildCategoryPills(); renderPrompts(); renderApps(); initHome();
   document.addEventListener("keydown",e=>{
     if((e.metaKey||e.ctrlKey)&&e.key==="k"){e.preventDefault();
       const i=document.getElementById("searchInput"); i.focus(); i.select();}
@@ -897,18 +693,20 @@ document.addEventListener("DOMContentLoaded",()=>{
   },{passive:true});
 });
 
-/* Authentication for the profile menu. Community posting lives on community.html. */
+/* Authentication for the profile menu, plus the live community feed. Posting lives on community.html. */
 let communityUser=null, communityAuth=null, authPending=false;
 function toggleProfileMenu(){
  const menu=document.getElementById('profileMenu');menu.hidden=!menu.hidden;document.getElementById('authBtn').setAttribute('aria-expanded',String(!menu.hidden));
  if(!menu.hidden)document.getElementById('headerSignOut').focus();
 }
 function closeProfileMenu(){document.getElementById('profileMenu').hidden=true;document.getElementById('authBtn').setAttribute('aria-expanded','false');}
-function initHomeAuth(){
+function initHome(){
  try{
   if(!window.firebase)throw new Error('sdk-unavailable');
   if(!firebase.apps.length)firebase.initializeApp(FIREBASE_CONFIG);
   communityAuth=firebase.auth();
+  communityDB=firebase.firestore();
+  initFeed();
   communityAuth.onAuthStateChanged(user=>{
    communityUser=user;const btn=document.getElementById('authBtn'),displayName=user&&(user.displayName||'Community member');
    document.getElementById('authBtnText').textContent=user?displayName:'Sign In';
@@ -918,8 +716,9 @@ function initHomeAuth(){
    if(user&&user.photoURL){photo.onload=()=>{photo.hidden=false;initial.hidden=true;};photo.onerror=()=>{photo.hidden=true;initial.hidden=false;};photo.src=user.photoURL;}
    if(user){btn.setAttribute('aria-expanded','false');btn.setAttribute('aria-controls','profileMenu');btn.setAttribute('aria-label',displayName+', account options');}
    else{btn.removeAttribute('aria-expanded');btn.removeAttribute('aria-controls');btn.removeAttribute('aria-label');}
+   renderPrompts();
   });
- }catch(error){console.error('Authentication could not initialize.',error);}
+ }catch(error){console.error('Firebase could not initialize.',error);feedLoaded=false;feedError='The prompt feed could not load. Please check your connection and refresh.';renderPrompts();}
  document.addEventListener('click',event=>{if(!document.getElementById('headerAccount').contains(event.target))closeProfileMenu();});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!document.getElementById('profileMenu').hidden){closeProfileMenu();document.getElementById('authBtn').focus();}});
 }
@@ -950,11 +749,86 @@ async function signInWithGoogle(){
 }
 function fbErr(code){return({'auth/popup-blocked':'Your browser blocked the sign-in window. Allow popups for this site, then try again.','auth/popup-closed-by-user':'Sign-in was cancelled. You can try again whenever you are ready.','auth/cancelled-popup-request':'A sign-in window is already open. Please finish there.','auth/unauthorized-domain':'Google sign-in is not enabled for this preview address. You can still browse prompts.','auth/operation-not-allowed':'This sign-in method is not enabled yet. Please use Google sign-in.','auth/network-request-failed':'Could not connect to sign-in. Please check your connection and try again.','auth/invalid-email':'Please enter a valid email address.','auth/email-already-in-use':'This email already has an account. Please sign in instead.','auth/weak-password':'Use a password with at least 6 characters.','auth/invalid-credential':'The email or password is incorrect.','auth/too-many-requests':'Too many sign-in attempts. Please try again later.'})[code]||'Sign-in did not finish. Please try again.';}
 
+/* Community feed: public prompts from Firestore, newest first. */
+function initFeed(){
+ communityDB.collection('votes').onSnapshot(snap=>{
+  const next=new Map();
+  snap.forEach(d=>{const v=d.data();if(typeof v.promptId!=='string'||typeof v.uid!=='string'||(v.value!==1&&v.value!==-1))return;
+   const e=next.get(v.promptId)||{likes:0,dislikes:0,mine:{}};if(v.value===1)e.likes++;else e.dislikes++;e.mine[v.uid]=v.value;next.set(v.promptId,e);});
+  voteMap=next;votesLoaded=true;renderPrompts();
+ },()=>{votesLoaded=false;voteMap=new Map();renderPrompts();});
+ communityDB.collection('prompts').orderBy('createdAt','desc').onSnapshot({includeMetadataChanges:true},snapshot=>{
+  FEED=snapshot.docs.map(doc=>toCard(doc));
+  feedLoaded=true;feedError='';
+  buildCategoryPills();renderPrompts();
+ },error=>{
+  feedLoaded=false;FEED=[];
+  feedError=error.code==='permission-denied'?'The prompt feed is not available yet. Its database read permissions need to be enabled.':'The prompt feed could not connect. Please check your connection and refresh.';
+  buildCategoryPills();renderPrompts();
+ });
+}
+function toCard(doc){
+ const d=doc.data({serverTimestamps:'estimate'})||{};
+ const category=typeof d.category==='string'?d.category:'Other';
+ return {
+  id:doc.id, category:category,
+  title:typeof d.title==='string'?d.title:'Untitled prompt',
+  prompt:typeof d.text==='string'?d.text:'',
+  authorId:typeof d.authorId==='string'?d.authorId:'',
+  authorName:typeof d.authorName==='string'?d.authorName:'Community member',
+  authorPhoto:typeof d.authorPhoto==='string'?safeMediaUrl(d.authorPhoto):null,
+  createdAt:d.createdAt||null,
+  preview:previewFor(d,category)
+ };
+}
+function safeMediaUrl(value){try{const url=new URL(value);return url.protocol==='https:'?url.href:null;}catch{return null;}}
+function previewFor(d,category){
+ const mediaUrl=typeof d.mediaUrl==='string'?safeMediaUrl(d.mediaUrl):null;
+ if(mediaUrl&&d.mediaType==='image')return{type:'image',url:mediaUrl};
+ if(mediaUrl&&d.mediaType==='video')return{type:'video',url:mediaUrl};
+ const theme={'Code':{glyph:'{ }',bg:'icon-bg-code',color:'#00ff88'},
+  'Writing':{glyph:'✎',bg:'icon-bg-writing',color:'#8a7a5a'},
+  'Music':{glyph:'♫',bg:'icon-bg-music',color:'#c99ff0'},
+  '3D Art':{glyph:'◆',bg:'icon-bg-music',color:'#f0c060'},
+  'Web Gen':{glyph:'⬡',bg:'icon-bg-code',color:'#7ab8ff'},
+  'Video':{glyph:'▶',bg:'icon-bg-code',color:'#ffffff'},
+  'Image':{glyph:'🎨',bg:'icon-bg-writing',color:'#8a7a5a'}}[category]||{glyph:'✦',bg:'icon-bg-writing',color:'#8a7a5a'};
+ return {type:'icon',glyph:theme.glyph,bg:theme.bg,color:theme.color};
+}
+
+/* Likes / dislikes (same 'votes' collection as the Community page) */
+const THUMB_UP='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v11H3V10h4zM7 10l4-8a2.5 2.5 0 0 1 2.5 2.5V8H20a2 2 0 0 1 2 2.3l-1.3 8A2 2 0 0 1 18.7 20H7"/></svg>';
+const THUMB_DOWN='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 14V3h4v11h-4zM17 14l-4 8a2.5 2.5 0 0 1-2.5-2.5V16H4a2 2 0 0 1-2-2.3l1.3-8A2 2 0 0 1 5.3 4H17"/></svg>';
+async function castVote(postId,value){
+ const user=communityAuth&&communityAuth.currentUser;
+ if(!user){showToast('Sign in to like or dislike prompts.','error');openAuthModal();return;}
+ if(votePending.has(postId))return;
+ const ref=communityDB.collection('votes').doc(postId+'_'+user.uid);
+ const entry=voteMap.get(postId),current=entry&&entry.mine[user.uid]||0;
+ votePending.add(postId);renderPrompts();
+ try{
+  if(current===value)await ref.delete();
+  else await ref.set({promptId:postId,uid:user.uid,value:value,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+ }catch(error){showToast(error.code==='permission-denied'?'Voting is not enabled yet. The database rules need to be updated.':'Could not save your vote. Please try again.','error');}
+ finally{votePending.delete(postId);renderPrompts();}
+}
+function voteButtonsHtml(post){
+ const entry=voteMap.get(post.id)||{likes:0,dislikes:0,mine:{}};
+ const mine=communityUser?(entry.mine[communityUser.uid]||0):0;
+ const pending=votePending.has(post.id);
+ const btn=(value,svg,label,count)=>`
+   <button type="button" class="vote-btn" data-vote="${value===1?'like':'dislike'}"
+     aria-pressed="${mine===value}" aria-label="${label}, ${count} so far"${pending?' disabled':''}
+     onclick="event.stopPropagation();castVote('${post.id}',${value})">${svg}<span>${count}</span></button>`;
+ return `<div class="vote-group" role="group" aria-label="Rate this prompt">${btn(1,THUMB_UP,'Like',entry.likes)}${btn(-1,THUMB_DOWN,'Dislike',entry.dislikes)}</div>`;
+}
+
 /* Pills */
 function buildCategoryPills(){
-  const cats=["All",...new Set(PROMPTS.map(p=>p.category))];
+  const cats=["All",...new Set(FEED.map(p=>p.category))];
+  if(!cats.includes(currentCategory))currentCategory="All";
   document.getElementById("pillRow").innerHTML=cats.map(c=>
-    `<button class="pill${c==="All"?" active":""}" onclick="filterCategory(this,'${c}')">${c}</button>`
+    `<button class="pill${c===currentCategory?" active":""}" data-cat="${esc(c)}" onclick="filterCategory(this,this.dataset.cat)">${esc(c)}</button>`
   ).join("");
 }
 function filterCategory(btn,cat){
@@ -964,12 +838,12 @@ function filterCategory(btn,cat){
 }
 function handleSearch(){currentSearch=document.getElementById("searchInput").value.toLowerCase().trim();renderPrompts();}
 function getFiltered(){
-  return PROMPTS.filter(p=>{
+  return FEED.filter(p=>{
     const mc=currentCategory==="All"||p.category===currentCategory;
     const mt=!currentSearch||p.title.toLowerCase().includes(currentSearch)
       ||p.category.toLowerCase().includes(currentSearch)
       ||p.prompt.toLowerCase().includes(currentSearch)
-      ||(p.tags||[]).some(t=>t.toLowerCase().includes(currentSearch));
+      ||p.authorName.toLowerCase().includes(currentSearch);
     return mc&&mt;
   });
 }
@@ -981,7 +855,7 @@ function buildCardMedia(p){
     "Code":"badge-code","Writing":"badge-writing","3D Art":"badge-3dart","Music":"badge-music"}[p.category]||"badge-image";
 
   if(pv.type==="image") return `
-    <div class="card-media">
+    <div class="card-media card-media-photo">
       <img src="${esc(pv.url)}" alt="${esc(p.title)}" loading="lazy"
            onerror="this.parentElement.style.background='#f0f0f0';this.style.display='none'" />
       <span class="media-cat-badge ${badgeClass}">${esc(p.category)}</span>
@@ -1038,9 +912,16 @@ function renderPrompts(){
   const grid=document.getElementById("promptGrid");
   const empty=document.getElementById("emptyState");
   const count=document.getElementById("promptCount");
+  const note=empty.querySelector("p");
+  if(feedError){grid.innerHTML="";count.textContent="";note.textContent=feedError;empty.style.display="flex";return;}
+  if(!feedLoaded){grid.innerHTML="";count.textContent="";note.textContent="Loading community prompts...";empty.style.display="flex";return;}
   const filtered=getFiltered();
   count.textContent=`${filtered.length} prompt${filtered.length!==1?"s":""}`;
-  if(!filtered.length){grid.innerHTML="";empty.style.display="flex";return;}
+  if(!filtered.length){
+    grid.innerHTML="";empty.style.display="flex";
+    note.textContent=FEED.length?"No prompts match your search.":"No community prompts yet. Share one from the Community page.";
+    return;
+  }
   empty.style.display="none";
   grid.innerHTML=filtered.map((p,i)=>`
     <article class="prompt-card" style="animation-delay:${i*45}ms"
@@ -1048,11 +929,11 @@ function renderPrompts(){
       onkeydown="if(event.key==='Enter')openPromptModal('${p.id}')">
       ${buildCardMedia(p)}
       <div class="card-body">
-        <div class="card-top"><span style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--gray-600)">${esc(p.category)}</span><span class="card-id">${esc(p.id)}</span></div>
+        <div class="card-top"><span style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--gray-600)">${esc(p.category)}</span><span class="card-author">${p.authorPhoto?`<img src="${esc(p.authorPhoto)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()" />`:""}<span>${esc(p.authorName)}</span></span></div>
         <h3 class="card-title">${esc(p.title)}</h3>
         <p class="card-excerpt">${esc(trunc(p.prompt,100))}</p>
-        <div class="card-footer">
-          <div class="card-tags">${(p.tags||[]).slice(0,3).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}</div>
+        <div class="card-footer" onclick="event.stopPropagation()">
+          ${voteButtonsHtml(p)}
           <span class="card-arrow">→</span>
         </div>
       </div>
@@ -1085,11 +966,11 @@ function renderApps(){
 
 /* Prompt Modal */
 function openPromptModal(id){
-  const p=PROMPTS.find(x=>x.id===id); if(!p) return; currentPrompt=p;
+  const p=FEED.find(x=>x.id===id); if(!p) return; currentPrompt=p;
   document.getElementById("modalCat").textContent      =p.category;
   document.getElementById("modalTitle").textContent    =p.title;
   document.getElementById("modalPromptText").textContent=p.prompt;
-  document.getElementById("modalId").textContent       =p.id;
+  document.getElementById("modalId").textContent       =p.authorName?"by "+p.authorName:"";
   document.getElementById("modalMediaArea").innerHTML  =buildModalMedia(p);
   resetCopyBtn();
   openModal("promptModal");
