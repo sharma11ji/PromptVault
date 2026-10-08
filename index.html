@@ -187,7 +187,15 @@ button{cursor:pointer;border:none;background:none;font:inherit}
   background:var(--black);color:var(--white);
   transition:background .2s,transform .15s var(--spring),box-shadow .2s}
 .btn-auth:hover{background:var(--gray-800);transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.2)}
-.btn-auth.signed-in{background:var(--gray-50);color:var(--black);border:1px solid var(--gray-200)}
+.btn-auth.signed-in{background:var(--gray-50);color:var(--black);border:1px solid var(--gray-200);display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;height:38px;max-width:240px}
+.header-account{position:relative;margin-left:auto;min-width:0}
+.profile-avatar{width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0}
+.profile-initial{display:grid;place-items:center;background:var(--gray-200);font-size:13px;font-weight:600}
+#authBtnText{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.profile-menu{position:absolute;right:0;top:46px;min-width:150px;background:var(--white);padding:6px;border:1px solid var(--gray-200);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.08)}
+.profile-menu button{padding:10px 14px;text-align:left;width:100%;border-radius:8px;font-size:13px}
+.profile-menu button:hover{background:var(--gray-50)}
+@media(max-width:480px){.header-inner{gap:12px}.btn-auth.signed-in{max-width:170px}}
 
 /* ── Hero ── */
 .hero{padding:96px 32px 68px}
@@ -443,6 +451,15 @@ button{cursor:pointer;border:none;background:none;font:inherit}
 @media(max-width:480px){.pill{font-size:12px;height:28px;padding:0 11px}.search-kbd{display:none}}
 ::selection{background:rgba(0,0,0,.08)}
 /* Community feed: same monochrome palette as the library. */
+.media-input{padding:10px;height:auto;font-size:12px;width:100%;min-width:0}
+.media-input::file-selector-button{border:0;border-radius:6px;background:var(--gray-100);padding:6px 8px;margin-right:8px;cursor:pointer}
+.attachment-preview{border:1px solid var(--gray-200);border-radius:12px;overflow:hidden}
+.attachment-preview img,.attachment-preview video{display:block;width:100%;max-height:200px;object-fit:contain;background:var(--gray-50)}
+.attachment-detail{display:flex;align-items:center;gap:8px;padding:10px;font-size:12px}
+.attachment-detail span{flex:1;min-width:0;overflow-wrap:anywhere}
+.attachment-detail button{font-size:12px;text-decoration:underline;flex-shrink:0}
+.community-media{display:block;width:100%;max-height:480px;object-fit:contain;background:var(--gray-50);border:1px solid var(--gray-100);border-radius:var(--radius-md);margin-top:16px}
+.media-unavailable{font-size:13px;color:var(--gray-600);margin-top:12px}
 [hidden]{display:none!important}
 #community{scroll-margin-top:80px}.community-compose .btn-google{width:100%;padding:0 14px}.community-layout{display:grid;grid-template-columns:340px minmax(0,1fr);gap:28px;align-items:start}
 .community-compose,.community-card{border:1.5px solid var(--gray-100);border-radius:var(--radius-lg);background:var(--white);padding:24px}
@@ -479,9 +496,16 @@ button:disabled{cursor:wait;opacity:.55}.toast{white-space:normal;max-width:calc
       <a href="#apps"    class="nav-link">Apps</a>
       <a href="#about"   class="nav-link">About</a>
     </nav>
-    <button class="btn-auth" id="authBtn" onclick="openAuthModal()">
-      <span id="authBtnText">Sign In</span>
-    </button>
+    <div class="header-account" id="headerAccount">
+      <button class="btn-auth" id="authBtn" type="button" onclick="openAuthModal()">
+        <img class="profile-avatar" id="profilePhoto" alt="" referrerpolicy="no-referrer" hidden />
+        <span class="profile-avatar profile-initial" id="profileInitial" aria-hidden="true" hidden></span>
+        <span id="authBtnText">Sign In</span>
+      </button>
+      <div class="profile-menu" id="profileMenu" hidden>
+        <button id="headerSignOut" type="button" onclick="signOutUser()">Sign out</button>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -513,13 +537,22 @@ button:disabled{cursor:wait;opacity:.55}.toast{white-space:normal;max-width:calc
   <div class="community-layout">
    <aside class="community-compose">
     <h3>Post a prompt</h3>
-    <p class="community-note">Share something useful. Your prompt and display name will be visible to everyone.</p>
+    <p class="community-note">Share something useful. Your prompt, attached media and display name will be visible to everyone.</p>
     <div id="communityGuest"><p class="community-note">Browse freely. Sign in with Google to post your own prompts.</p><button class="btn-google" type="button" onclick="signInWithGoogle()">Continue with Google</button></div>
     <div class="community-identity" id="communityIdentity" hidden><span id="communityUser"></span><button class="community-signout" type="button" onclick="signOutUser()">Sign out</button></div>
     <form id="postForm" hidden>
      <div class="field-group"><label class="field-label" for="postTitle">Title</label><input class="field-input" id="postTitle" name="title" required maxlength="120" placeholder="Give your prompt a title" /></div>
      <div class="field-group"><label class="field-label" for="postCategory">Category</label><select class="field-input" id="postCategory" name="category" required><option value="">Choose a category</option><option>Image</option><option>Video</option><option>Web Gen</option><option>Code</option><option>Writing</option><option>3D Art</option><option>Music</option></select></div>
      <div class="field-group"><label class="field-label" for="postText">Prompt text</label><textarea class="field-input" id="postText" name="text" required maxlength="20000" placeholder="Write the full prompt here..."></textarea></div>
+     <div class="field-group">
+      <label class="field-label" for="postMedia">Photo or video <span class="community-note">(optional)</span></label>
+      <input class="field-input media-input" id="postMedia" name="media" type="file" accept="image/*,video/*" aria-describedby="mediaHelp" />
+      <p class="community-note" id="mediaHelp">Attach one file. Photos up to 5 MB; videos up to 20 MB. Keep the prompt useful without media.</p>
+      <div class="attachment-preview" id="mediaPreview" hidden>
+       <div id="mediaPreviewContent"></div>
+       <div class="attachment-detail"><span id="mediaFileName"></span><button id="removeMedia" type="button">Remove</button></div>
+      </div>
+     </div>
      <button class="btn-auth-submit" id="postSubmit" type="submit">Publish prompt</button>
     </form>
     <p id="postStatus" class="form-status" role="status" aria-live="polite"></p>
@@ -650,6 +683,7 @@ button:disabled{cursor:wait;opacity:.55}.toast{white-space:normal;max-width:calc
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
 
 <script>
 /* ════════════════════════════════════════════════════════
@@ -926,7 +960,51 @@ document.addEventListener("DOMContentLoaded",()=>{
 
 /* Firebase and community posts. Firestore is the source of truth. */
 let communityPosts=[], communityUser=null, communityDB=null, communityAuth=null, feedLoaded=false;
-let posting=false, authPending=false;
+let posting=false, authPending=false, selectedMedia=null, mediaPreviewUrl=null, uploadedMedia=null;
+// Conservative client caps. Published Storage rules remain the final authority.
+const MEDIA_LIMITS={image:5*1024*1024,video:20*1024*1024};
+function mediaKind(file){return file&&file.type.startsWith('image/')?'image':file&&file.type.startsWith('video/')?'video':null;}
+function mediaValidation(file){
+ const kind=mediaKind(file);
+ if(!kind)return 'Choose a photo or video file. Other file types are not supported.';
+ if(!file.size)return 'This file is empty. Please choose another photo or video.';
+ if(file.size>MEDIA_LIMITS[kind])return kind==='image'?'This photo is too large. Choose a photo under 5 MB.':'This video is too large. Choose a video under 20 MB.';
+ return '';
+}
+function clearMedia(resetInput=true){
+ if(mediaPreviewUrl)URL.revokeObjectURL(mediaPreviewUrl);
+ mediaPreviewUrl=null;selectedMedia=null;uploadedMedia=null;
+ if(resetInput)document.getElementById('postMedia').value='';
+ document.getElementById('mediaPreviewContent').replaceChildren();document.getElementById('mediaPreview').hidden=true;
+}
+function chooseMedia(){
+ const file=document.getElementById('postMedia').files[0];clearMedia(false);if(!file)return;
+ const error=mediaValidation(file);if(error){document.getElementById('postMedia').value='';setPostStatus(error,true);return;}
+ selectedMedia=file;mediaPreviewUrl=URL.createObjectURL(file);
+ const media=document.createElement(mediaKind(file)==='image'?'img':'video');media.src=mediaPreviewUrl;
+ if(media.tagName==='IMG')media.alt='Selected photo preview';else{media.controls=true;media.playsInline=true;media.preload='metadata';}
+ document.getElementById('mediaPreviewContent').append(media);
+ document.getElementById('mediaFileName').textContent=file.name+' · '+(file.size<1024*1024?Math.max(1,Math.round(file.size/1024))+' KB':(file.size/1024/1024).toFixed(1)+' MB');
+ document.getElementById('mediaPreview').hidden=false;setPostStatus('Attachment ready. It will be public when you publish.');
+}
+function setPostingBusy(busy){
+ document.querySelectorAll('#postForm input,#postForm select,#postForm textarea,#postForm button,#headerSignOut,.community-signout').forEach(el=>el.disabled=busy);
+ document.getElementById('postSubmit').disabled=busy||!communityUser;
+ document.getElementById('postSubmit').textContent=busy?'Publishing...':'Publish prompt';
+}
+function storageError(code){return({
+ 'storage/unauthorized':'The attachment could not upload. Storage permissions may not be enabled yet, or this file exceeds the allowed size. Try a smaller file or publish without it.',
+ 'storage/unauthenticated':'Please sign in again before uploading an attachment.',
+ 'storage/quota-exceeded':'Media uploads are unavailable right now. Try later or publish without an attachment.',
+ 'storage/retry-limit-exceeded':'The upload timed out. Check your connection and try again.',
+ 'storage/canceled':'The upload was cancelled. Your prompt text is still here.'
+})[code]||'The attachment could not upload. Check your connection, try a smaller photo or video, or publish without it. Your text is still here.';}
+function toggleProfileMenu(){
+ const menu=document.getElementById('profileMenu');menu.hidden=!menu.hidden;document.getElementById('authBtn').setAttribute('aria-expanded',String(!menu.hidden));
+ if(!menu.hidden)document.getElementById('headerSignOut').focus();
+}
+function closeProfileMenu(){document.getElementById('profileMenu').hidden=true;document.getElementById('authBtn').setAttribute('aria-expanded','false');}
+function safeMediaUrl(value){try{const url=new URL(value);return url.protocol==='https:'?url.href:null;}catch{return null;}}
 const deletingPosts=new Set();
 function setPostStatus(message,error=false){const el=document.getElementById('postStatus');el.textContent=message;el.classList.toggle('error',error);}
 function setFeedStatus(message,error=false){const el=document.getElementById('feedStatus');el.textContent=message;el.hidden=!message;el.classList.toggle('error',error);}
@@ -949,8 +1027,14 @@ function initFirebase(){
 }
 function updateCommunityAuth(){
  const user=communityUser,btn=document.getElementById('authBtn');
- document.getElementById('authBtnText').textContent=user?'Sign out':'Sign In';
- btn.classList.toggle('signed-in',!!user);btn.onclick=user?signOutUser:openAuthModal;
+ const displayName=user&&(user.displayName||'Community member');
+ document.getElementById('authBtnText').textContent=user?displayName:'Sign In';
+ btn.classList.toggle('signed-in',!!user);btn.onclick=user?toggleProfileMenu:openAuthModal;closeProfileMenu();
+ const photo=document.getElementById('profilePhoto'),initial=document.getElementById('profileInitial');
+ initial.textContent=user?Array.from(displayName.trim()||'C')[0].toUpperCase():'';initial.hidden=!user;photo.hidden=true;photo.removeAttribute('src');
+ if(user&&safeMediaUrl(user.photoURL)){photo.onerror=()=>{photo.hidden=true;initial.hidden=false;};photo.onload=()=>{photo.hidden=false;initial.hidden=true;};photo.src=safeMediaUrl(user.photoURL);}
+ if(user){btn.setAttribute('aria-expanded','false');btn.setAttribute('aria-controls','profileMenu');btn.setAttribute('aria-label',displayName+', account options');}
+ else{btn.removeAttribute('aria-expanded');btn.removeAttribute('aria-controls');btn.removeAttribute('aria-label');if(!posting)clearMedia();}
  document.getElementById('communityGuest').hidden=!!user;
  document.getElementById('communityIdentity').hidden=!user;
  document.getElementById('postForm').hidden=!user;
@@ -960,6 +1044,8 @@ function updateCommunityAuth(){
  renderCommunity();
 }
 async function signOutUser(){
+ if(posting){setPostStatus('Please wait for publishing to finish before signing out.');return;}
+ closeProfileMenu();
  try{await communityAuth.signOut();setPostStatus('');showToast('Signed out. You can still browse all prompts.');}
  catch(error){showToast('Could not sign out. Please try again.','error');}
 }
@@ -1007,12 +1093,36 @@ async function publishPrompt(event){
  const title=document.getElementById('postTitle').value.trim(),category=document.getElementById('postCategory').value,text=document.getElementById('postText').value.trim();
  if(!title||!text||title.length>120||text.length>20000||!['Image','Video','Web Gen','Code','Writing','3D Art','Music'].includes(category)){setPostStatus('Add a title, choose a category, and write your prompt before posting.',true);return;}
  if(!navigator.onLine){setPostStatus('You are offline. Reconnect before publishing your prompt.',true);return;}
- posting=true;document.getElementById('postSubmit').disabled=true;setPostStatus('Publishing your prompt...');
+ const file=selectedMedia;
+ if(file){const error=mediaValidation(file);if(error){setPostStatus(error,true);return;}}
+ posting=true;setPostingBusy(true);let phase='upload';
  try{
-  await communityDB.collection('prompts').add({title,category,text,authorId:user.uid,authorName:user.displayName||'Community member',createdAt:firebase.firestore.FieldValue.serverTimestamp()});
-  document.getElementById('postForm').reset();setPostStatus('Your prompt is published.');showToast('Prompt published.');
- }catch(error){setPostStatus(error.code==='permission-denied'?'Your prompt was not published. Sign in again and try once more.':'Your prompt was not published. Please check your connection and try again. Your text is still here.',true);}
- finally{posting=false;document.getElementById('postSubmit').disabled=!communityUser;}
+  const data={title,category,text,authorId:user.uid,authorName:user.displayName||'Community member',createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+  if(file){
+   if(!uploadedMedia||uploadedMedia.file!==file||uploadedMedia.uid!==user.uid){
+    if(!firebase.storage)throw new Error('storage-unavailable');
+    // No original filename in the path. All client uploads stay under prompt-media/.
+    const id=communityDB.collection('prompts').doc().id;
+    const ref=firebase.storage().ref('prompt-media/'+user.uid+'/'+id);
+    const task=ref.put(file,{contentType:file.type});
+    setPostStatus('Uploading your attachment...');
+    await new Promise((resolve,reject)=>task.on('state_changed',snapshot=>{
+     const progress=snapshot.totalBytes?Math.round(snapshot.bytesTransferred/snapshot.totalBytes*100):0;
+     setPostStatus('Uploading your attachment... '+progress+'%');
+    },reject,resolve));
+    const mediaUrl=await ref.getDownloadURL();
+    uploadedMedia={file,uid:user.uid,mediaUrl,mediaType:mediaKind(file)};
+   }
+   data.mediaUrl=uploadedMedia.mediaUrl;data.mediaType=uploadedMedia.mediaType;
+  }
+  phase='publish';
+  if(!communityAuth.currentUser||communityAuth.currentUser.uid!==user.uid){setPostStatus('Your sign-in changed. Please sign in again before publishing. Your text is still here.',true);return;}
+  setPostStatus('Publishing your prompt...');
+  await communityDB.collection('prompts').add(data);
+  document.getElementById('postForm').reset();clearMedia();setPostStatus('Your prompt is published.');showToast('Prompt published.');
+ }catch(error){setPostStatus(phase==='upload'?storageError(error.code):error.code==='permission-denied'?'Your prompt was not published. Sign in again and try once more. Your text is still here.':'Your prompt was not published. Please check your connection and try again. Your text is still here.',true);}
+ finally{posting=false;setPostingBusy(false);}
+
 }
 function renderCommunity(){
  const grid=document.getElementById('communityFeed');if(!grid)return;grid.replaceChildren();
@@ -1033,7 +1143,16 @@ function renderCommunity(){
   const actions=document.createElement('div');actions.className='community-actions';
   const copy=document.createElement('button');copy.className='btn-copy';copy.type='button';copy.textContent='Copy prompt';copy.onclick=async()=>{try{await navigator.clipboard.writeText(post.text);showToast('Prompt copied.');}catch{showToast('Copy failed. Select and copy the prompt text.','error');}};actions.append(copy);
   if(communityUser&&communityUser.uid===post.authorId){const remove=document.createElement('button');remove.type='button';remove.className='community-delete';remove.textContent=deletingPosts.has(post.id)?'Deleting...':'Delete';remove.disabled=deletingPosts.has(post.id);remove.onclick=()=>deleteCommunityPrompt(post);actions.append(remove);}
-  card.append(meta,title,text,actions);grid.append(card);
+  card.append(meta,title,text);
+  const mediaUrl=typeof post.mediaUrl==='string'&&safeMediaUrl(post.mediaUrl);
+  if(mediaUrl&&(post.mediaType==='image'||post.mediaType==='video')){
+   const media=document.createElement(post.mediaType==='image'?'img':'video');media.className='community-media';media.src=mediaUrl;
+   if(post.mediaType==='image'){media.alt='Photo attached to '+post.title;media.loading='lazy';}
+   else{media.controls=true;media.playsInline=true;media.preload='metadata';media.setAttribute('aria-label','Video attached to '+post.title);}
+   media.onerror=()=>{const note=document.createElement('p');note.className='media-unavailable';note.textContent='This attachment is unavailable. You can still read and copy the prompt.';media.replaceWith(note);};
+   card.append(media);
+  }
+  card.append(actions);grid.append(card);
  }
 }
 async function deleteCommunityPrompt(post){
@@ -1046,6 +1165,13 @@ async function deleteCommunityPrompt(post){
  catch(error){showToast('Could not delete your prompt. Please try again.','error');}
  finally{deletingPosts.delete(post.id);renderCommunity();}
 }
+
+document.addEventListener('DOMContentLoaded',()=>{
+ document.getElementById('postMedia').addEventListener('change',chooseMedia);
+ document.getElementById('removeMedia').addEventListener('click',()=>{clearMedia();setPostStatus('Attachment removed.');});
+ document.addEventListener('click',event=>{if(!document.getElementById('headerAccount').contains(event.target))closeProfileMenu();});
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!document.getElementById('profileMenu').hidden){closeProfileMenu();document.getElementById('authBtn').focus();}});
+});
 
 /* Pills */
 function buildCategoryPills(){
