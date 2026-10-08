@@ -516,6 +516,11 @@ button:disabled{cursor:wait;opacity:.55}.toast{white-space:normal;max-width:calc
 .tile-preview{width:100%;flex-shrink:0;aspect-ratio:1;position:relative;background:#eeeae2;overflow:hidden;display:flex;align-items:center;padding:22px}.tile-media{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.tile-excerpt{font-family:'DM Mono',monospace;font-size:13px;line-height:1.8;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:7;overflow:hidden;color:var(--gray-800)}
 .tile-info{padding:14px 16px}.tile-category{font-size:10px;color:var(--gray-600);letter-spacing:.08em;text-transform:uppercase}.tile-info h3{font-size:15px;line-height:1.4;margin-top:5px;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}.tile-video{position:absolute;top:12px;right:12px;background:rgba(0,0,0,.7);color:white;padding:3px 8px;border-radius:6px;font-size:11px;z-index:1}
 .prompt-detail{margin:auto;border:1px solid var(--gray-200);border-radius:20px;padding:24px;width:min(640px,calc(100vw - 32px));max-height:90vh;overflow:auto;color:var(--black);background:var(--white)}.prompt-detail::backdrop{background:rgba(0,0,0,.45)}.detail-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px}.detail-close{width:38px;height:38px;border-radius:50%;background:var(--gray-50);flex-shrink:0}.prompt-detail h2{font-size:25px;overflow-wrap:anywhere}.prompt-detail .community-text{margin:18px 0}.prompt-detail .community-media{max-height:300px}
+.profile-stats{gap:22px!important;flex-wrap:wrap}.profile-stat{display:flex;align-items:baseline;gap:7px}
+.profile-stats span{font-size:14px}@media(max-width:480px){.profile-stats{gap:14px!important}.profile-stat{gap:5px}.profile-stats strong{font-size:19px}.profile-stats span{font-size:13px}}
+.follow-btn{margin-top:16px;min-height:44px;padding:0 26px;border-radius:100px;background:var(--black);color:var(--white);border:1.5px solid var(--black);font-size:14px;font-weight:500;transition:background .18s,color .18s}
+.follow-btn[aria-pressed="true"]{background:var(--white);color:var(--black);border-color:var(--gray-400)}
+.follow-btn:hover{opacity:.88}.follow-btn:focus-visible{outline:2px solid var(--black);outline-offset:3px}.follow-btn:disabled{opacity:.6}.follow-btn[hidden]{display:none}
 @media(max-width:600px){.profile-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.tile-preview{padding:14px}.tile-excerpt{font-size:11px;line-height:1.7;-webkit-line-clamp:5}.tile-info{padding:10px}.tile-info h3{font-size:13px}.profile-history-note{font-size:12px}.profile-intro{margin-top:24px}}
 </style>
 </head><body>
@@ -550,7 +555,7 @@ button:disabled{cursor:wait;opacity:.55}.toast{white-space:normal;max-width:calc
 <section class="section section-alt" aria-labelledby="profileName">
  <div class="section-inner profile-content">
   <a class="community-back" href="community.html" aria-label="Back to community prompts"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M19 12H5m7 7-7-7 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Back</span></a>
-  <div class="profile-intro"><img class="profile-large-avatar" id="userPhoto" alt="" referrerpolicy="no-referrer" hidden/><span class="profile-large-avatar profile-large-initial" id="userInitial" aria-hidden="true">?</span><div class="profile-details"><h1 class="profile-name" id="profileName">User profile</h1><p class="profile-summary" id="joinDate" hidden></p><div class="profile-stats"><strong id="profileCount">0</strong><span>prompts</span></div></div></div>
+  <div class="profile-intro"><img class="profile-large-avatar" id="userPhoto" alt="" referrerpolicy="no-referrer" hidden/><span class="profile-large-avatar profile-large-initial" id="userInitial" aria-hidden="true">?</span><div class="profile-details"><h1 class="profile-name" id="profileName">User profile</h1><p class="profile-summary" id="joinDate" hidden></p><div class="profile-stats"><div class="profile-stat"><strong id="profileCount">0</strong><span>prompts</span></div><div class="profile-stat"><strong id="followerCount">0</strong><span>followers</span></div><div class="profile-stat"><strong id="followingCount">0</strong><span>following</span></div></div><button type="button" class="follow-btn" id="followBtn" hidden>Follow</button></div></div>
   <div class="profile-tabs"><span class="profile-tab">▦ &nbsp; Prompts</span></div>
   <p class="profile-history-note">This user's published community prompts, newest first. Removed posts are not shown. Private account details and browsing activity are not shared.</p>
   <p id="feedStatus" class="community-status" role="status">Connecting to this profile...</p>
@@ -597,7 +602,7 @@ function renderProfile(){
  if(url){photo.onload=()=>{photo.hidden=false;initial.hidden=true;};photo.onerror=()=>{photo.hidden=true;initial.hidden=false;};if(photo.src!==url)photo.src=url;else if(photo.complete&&photo.naturalWidth){photo.hidden=false;initial.hidden=true;}}
  const join=document.getElementById('joinDate');join.hidden=true;
  if(own&&communityUser.metadata&&communityUser.metadata.creationTime){const date=new Date(communityUser.metadata.creationTime);if(!Number.isNaN(date.getTime())){join.textContent='Joined '+date.toLocaleDateString(undefined,{dateStyle:'medium'});join.hidden=false;}}
- document.getElementById('profileCount').textContent=profilePosts.length;
+ document.getElementById('profileCount').textContent=profilePosts.length;renderFollow();
  const grid=document.getElementById('profileFeed');grid.replaceChildren();
  for(const post of profilePosts){
   const card=document.createElement('button');card.type='button';card.className='profile-tile';card.setAttribute('aria-label','Open prompt: '+post.title);card.onclick=()=>openPrompt(post);
@@ -608,6 +613,24 @@ function renderProfile(){
   }else{const excerpt=document.createElement('p');excerpt.className='tile-excerpt';excerpt.textContent=post.text;preview.append(excerpt);}
   const info=document.createElement('div');info.className='tile-info';const category=document.createElement('span');category.className='tile-category';category.textContent=post.category;const title=document.createElement('h3');title.textContent=post.title;info.append(category,title);card.append(preview,info);grid.append(card);
  }
+}
+let followers=[],following=[],followPending=false;
+function renderFollow(){
+ document.getElementById('followerCount').textContent=followers.length;document.getElementById('followingCount').textContent=following.length;
+ const btn=document.getElementById('followBtn'),uid=communityUser&&communityUser.uid;
+ const own=!!uid&&uid===profileUid;btn.hidden=!profileUid||own;
+ const isF=!!uid&&followers.includes(uid);btn.textContent=isF?'Following':'Follow';btn.setAttribute('aria-pressed',String(isF));btn.disabled=followPending;
+ btn.setAttribute('aria-label',(isF?'Unfollow ':'Follow ')+document.getElementById('profileName').textContent);
+}
+async function toggleFollow(){
+ const user=communityAuth&&communityAuth.currentUser;
+ if(!user){showToast('Sign in to follow people.');signInWithGoogle();return;}
+ if(user.uid===profileUid||followPending)return;
+ const ref=firebase.firestore().collection('follows').doc(user.uid+'_'+profileUid);
+ followPending=true;renderFollow();
+ try{if(followers.includes(user.uid))await ref.delete();else await ref.set({followerId:user.uid,followeeId:profileUid,createdAt:firebase.firestore.FieldValue.serverTimestamp()});}
+ catch(error){showToast(error.code==='permission-denied'?'Following is not enabled yet. The database rules need to be updated.':'Could not update follow. Please try again.');}
+ finally{followPending=false;renderFollow();}
 }
 let lastPromptTrigger=null;
 function closePrompt(){document.getElementById('promptDetail').close();lastPromptTrigger?.focus();}
@@ -623,6 +646,10 @@ document.addEventListener('DOMContentLoaded',()=>{
  if(!profileUid){setFeedStatus('Open a profile by tapping an author in the community feed.');renderProfile();return;}
  try{
   firebase.initializeApp(FIREBASE_CONFIG);communityAuth=firebase.auth();communityAuth.onAuthStateChanged(user=>{communityUser=user;updateHeader();});
+  document.getElementById('followBtn').onclick=toggleFollow;
+  const fdb=firebase.firestore();
+  fdb.collection('follows').where('followeeId','==',profileUid).onSnapshot(s=>{followers=s.docs.map(d=>d.data()).filter(d=>d.followeeId===profileUid&&typeof d.followerId==='string').map(d=>d.followerId);renderFollow();},()=>{});
+  fdb.collection('follows').where('followerId','==',profileUid).onSnapshot(s=>{following=s.docs.map(d=>d.data()).filter(d=>d.followerId===profileUid&&typeof d.followeeId==='string').map(d=>d.followeeId);renderFollow();},()=>{});
   // Equality-only query avoids a required composite index. Sort all matching posts locally.
   firebase.firestore().collection('prompts').where('authorId','==',profileUid).onSnapshot(snapshot=>{
    profilePosts=snapshot.docs.map(doc=>({...doc.data(),id:doc.id})).filter(post=>post.authorId===profileUid&&[post.title,post.text,post.category].every(value=>typeof value==='string'));

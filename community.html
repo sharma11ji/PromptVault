@@ -496,6 +496,14 @@ button{cursor:pointer;border:none;background:none;font:inherit}
 @media(prefers-reduced-motion:reduce){.upload-progress-fill{transition:none}.upload-progress-fill::after{animation:none}}
 .form-status{font-size:13px;color:var(--gray-600);min-height:20px;overflow-wrap:anywhere}.form-status.error{color:#b42318}
 button:disabled{cursor:wait;opacity:.55}.toast{white-space:normal;max-width:calc(100vw - 32px);text-align:center;border-radius:16px}
+.vote-group{display:flex;gap:8px;align-items:center}
+.vote-btn{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:0 14px;border-radius:100px;background:var(--white);border:1.5px solid var(--gray-200);font-size:13px;font-weight:500;color:var(--black);transition:background .18s,border-color .18s,color .18s}
+.vote-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.vote-btn:hover{border-color:var(--black)}.vote-btn:focus-visible{outline:2px solid var(--black);outline-offset:3px}
+.vote-btn[aria-pressed="true"]{background:var(--black);color:var(--white);border-color:var(--black)}
+.vote-btn[aria-pressed="true"] svg{fill:currentColor}.vote-btn:disabled{opacity:.6}
+.community-actions{align-items:center;flex-wrap:wrap}.community-actions .vote-group{margin-right:auto}
+@media(max-width:480px){.vote-btn{min-height:44px;padding:0 12px;gap:5px}.vote-group{gap:6px}.community-actions{gap:6px}.community-actions .btn-copy{padding:0 12px}.community-delete{padding:8px 4px}}
 @media(max-width:850px){.community-layout{grid-template-columns:1fr}.community-compose{padding:20px}}
 </style>
 </head>
@@ -720,6 +728,12 @@ function initFirebase(){
   firebase.initializeApp(FIREBASE_CONFIG);
   communityAuth=firebase.auth(); communityDB=firebase.firestore();
   communityAuth.onAuthStateChanged(user=>{communityUser=user;updateCommunityAuth();},()=>setPostStatus('Sign-in is unavailable right now. Please refresh and try again.',true));
+  communityDB.collection('votes').onSnapshot(snap=>{
+   const next=new Map();
+   snap.forEach(d=>{const v=d.data();if(typeof v.promptId!=='string'||typeof v.uid!=='string'||(v.value!==1&&v.value!==-1))return;
+    const e=next.get(v.promptId)||{likes:0,dislikes:0,mine:{}};if(v.value===1)e.likes++;else e.dislikes++;e.mine[v.uid]=v.value;next.set(v.promptId,e);});
+   voteMap=next;votesLoaded=true;renderCommunity();
+  },()=>{votesLoaded=false;voteMap=new Map();renderCommunity();});
   communityDB.collection('prompts').orderBy('createdAt','desc').onSnapshot({includeMetadataChanges:true},snapshot=>{
    communityPosts=snapshot.docs.map(doc=>({...doc.data({serverTimestamps:'estimate'}),id:doc.id}));
    feedLoaded=true; renderCommunity();
@@ -730,6 +744,32 @@ function initFirebase(){
  }catch(error){setFeedStatus('The community feed could not load. Please check your connection and refresh.',true);setPostStatus('Sign-in is unavailable right now. The built-in library still works.',true);}
  window.addEventListener('offline',()=>setFeedStatus('You are offline. Reconnect to see the latest community prompts.'));
  window.addEventListener('online',()=>setFeedStatus('Reconnecting to the community feed...'));
+}
+let voteMap=new Map(),votesLoaded=false;const votePending=new Set();
+const THUMB_UP='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v11H3V10h4zM7 10l4-8a2.5 2.5 0 0 1 2.5 2.5V8H20a2 2 0 0 1 2 2.3l-1.3 8A2 2 0 0 1 18.7 20H7"/></svg>';
+const THUMB_DOWN='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 14V3h4v11h-4zM17 14l-4 8a2.5 2.5 0 0 1-2.5-2.5V16H4a2 2 0 0 1-2-2.3l1.3-8A2 2 0 0 1 5.3 4H17"/></svg>';
+async function castVote(post,value){
+ const user=communityAuth&&communityAuth.currentUser;
+ if(!user){showToast('Sign in to like or dislike prompts.','error');openAuthModal();return;}
+ if(votePending.has(post.id))return;
+ const ref=communityDB.collection('votes').doc(post.id+'_'+user.uid);
+ const entry=voteMap.get(post.id),current=entry&&entry.mine[user.uid]||0;
+ votePending.add(post.id);renderCommunity();
+ try{
+  if(current===value)await ref.delete();
+  else await ref.set({promptId:post.id,uid:user.uid,value:value,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+ }catch(error){showToast(error.code==='permission-denied'?'Voting is not enabled yet. The database rules need to be updated.':'Could not save your vote. Please try again.','error');}
+ finally{votePending.delete(post.id);renderCommunity();}
+}
+function voteButtons(post){
+ const entry=voteMap.get(post.id)||{likes:0,dislikes:0,mine:{}},mine=communityUser?(entry.mine[communityUser.uid]||0):0;
+ const group=document.createElement('div');group.className='vote-group';group.setAttribute('role','group');group.setAttribute('aria-label','Rate this prompt');
+ for(const [value,svg,label,count] of [[1,THUMB_UP,'Like',entry.likes],[-1,THUMB_DOWN,'Dislike',entry.dislikes]]){
+  const b=document.createElement('button');b.type='button';b.className='vote-btn';b.dataset.vote=value===1?'like':'dislike';
+  b.setAttribute('aria-pressed',String(mine===value));b.setAttribute('aria-label',label+', '+count+' so far');b.disabled=votePending.has(post.id);
+  b.innerHTML=svg;const n=document.createElement('span');n.textContent=count;b.append(n);b.onclick=()=>castVote(post,value);group.append(b);
+ }
+ return group;
 }
 function updateCommunityAuth(){
  const user=communityUser,btn=document.getElementById('authBtn');
@@ -854,6 +894,7 @@ function renderCommunity(){
   const actions=document.createElement('div');actions.className='community-actions';
   const copy=document.createElement('button');copy.className='btn-copy';copy.type='button';copy.textContent='Copy prompt';copy.onclick=async()=>{try{await navigator.clipboard.writeText(post.text);showToast('Prompt copied.');}catch{showToast('Copy failed. Select and copy the prompt text.','error');}};actions.append(copy);
   if(communityUser&&communityUser.uid===post.authorId){const remove=document.createElement('button');remove.type='button';remove.className='community-delete';remove.textContent=deletingPosts.has(post.id)?'Deleting...':'Delete';remove.disabled=deletingPosts.has(post.id);remove.onclick=()=>deleteCommunityPrompt(post);actions.append(remove);}
+  actions.prepend(voteButtons(post));
   card.append(meta,title,text);
   const mediaUrl=typeof post.mediaUrl==='string'&&safeMediaUrl(post.mediaUrl);
   if(mediaUrl&&(post.mediaType==='image'||post.mediaType==='video')){
