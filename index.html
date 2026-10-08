@@ -342,6 +342,9 @@ button{cursor:pointer;border:none;background:none;font:inherit}
   color:var(--gray-400);min-width:0;max-width:55%}
 .card-author img{width:18px;height:18px;border-radius:50%;object-fit:cover;flex-shrink:0}
 .card-author span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-author-link{cursor:pointer;text-decoration:underline;text-decoration-color:var(--gray-300);text-underline-offset:3px}
+.card-author-link:hover,.card-author-link:focus-visible{color:var(--black);text-decoration-color:currentColor}
+.card-author-link:focus-visible{outline:2px solid var(--black);outline-offset:3px;border-radius:2px}
 @media(max-width:480px){.vote-btn{min-height:40px;padding:0 12px;gap:5px}.vote-group{gap:6px}}
 
 /* ═══════════════════════════════════════
@@ -926,10 +929,10 @@ function renderPrompts(){
   grid.innerHTML=filtered.map((p,i)=>`
     <article class="prompt-card" style="animation-delay:${i*45}ms"
       onclick="openPromptModal('${p.id}')" tabindex="0" role="button"
-      onkeydown="if(event.key==='Enter')openPromptModal('${p.id}')">
+      onkeydown="if(event.key==='Enter'&&event.target===event.currentTarget)openPromptModal('${p.id}')">
       ${buildCardMedia(p)}
       <div class="card-body">
-        <div class="card-top"><span style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--gray-600)">${esc(p.category)}</span><span class="card-author">${p.authorPhoto?`<img src="${esc(p.authorPhoto)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()" />`:""}<span>${esc(p.authorName)}</span></span></div>
+        <div class="card-top"><span style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--gray-600)">${esc(p.category)}</span>${p.authorId?`<a class="card-author card-author-link" href="profile.html?u=${encodeURIComponent(p.authorId)}" aria-label="View ${esc(p.authorName)}'s profile" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">${p.authorPhoto?`<img src="${esc(p.authorPhoto)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()" />`:""}<span>${esc(p.authorName)}</span></a>`:`<span class="card-author">${p.authorPhoto?`<img src="${esc(p.authorPhoto)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()" />`:""}<span>${esc(p.authorName)}</span></span>`}</div>
         <h3 class="card-title">${esc(p.title)}</h3>
         <p class="card-excerpt">${esc(trunc(p.prompt,100))}</p>
         <div class="card-footer" onclick="event.stopPropagation()">
