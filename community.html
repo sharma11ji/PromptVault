@@ -506,7 +506,7 @@ button:disabled{cursor:wait;opacity:.55}.toast{white-space:normal;max-width:calc
 @media(max-width:480px){.vote-btn{min-height:44px;padding:0 12px;gap:5px}.vote-group{gap:6px}.community-actions{gap:6px}.community-actions .btn-copy{padding:0 12px}.community-delete{padding:8px 4px}}
 @media(max-width:850px){.community-layout{grid-template-columns:1fr}.community-compose{padding:20px}}
 </style>
-</head>
+<link rel="stylesheet" href="creative.css" /></head>
 <body>
 <!-- HEADER -->
 <header class="header" id="header">
@@ -545,15 +545,21 @@ button:disabled{cursor:wait;opacity:.55}.toast{white-space:normal;max-width:calc
   </a>
   <div class="section-header"><h2 class="section-title" id="communityTitle">Community prompts</h2><span class="section-count" id="communityCount">Live feed</span></div>
   <p id="feedStatus" class="community-status" role="status">Connecting to the community feed...</p>
-  <div class="community-layout">
+<div class="pv-community-filters"><label for="pvCommunitySearch">Find inspiration</label><input id="pvCommunitySearch" type="search" placeholder="Search projects, tools, tags or creators" oninput="currentSearch=this.value.trim().toLowerCase();renderCommunity()" /><label for="pvCommunityCategory">Category</label><select id="pvCommunityCategory" onchange="currentCategory=this.value;renderCommunity()"><option>All</option><option>UI Design</option><option>Branding</option><option>Typography</option><option>Illustration</option><option>AI Photography</option><option>Image</option><option>Video</option><option>Web Gen</option><option>Code</option><option>Writing</option><option>3D Art</option><option>Music</option></select></div>  <div class="community-layout">
    <aside class="community-compose">
-    <h3>Post a prompt</h3>
+    <h3>Create a project</h3>
     <p class="community-note">Share something useful. Your prompt, attached media and display name will be visible to everyone.</p>
     <div id="communityGuest"><p class="community-note">Browse freely. Sign in with Google to post your own prompts.</p><button class="btn-google" type="button" onclick="signInWithGoogle()">Continue with Google</button></div>
     <div class="community-identity" id="communityIdentity" hidden><span id="communityUser"></span><button class="community-signout" type="button" onclick="signOutUser()">Sign out</button></div>
     <form id="postForm" hidden>
      <div class="field-group"><label class="field-label" for="postTitle">Title</label><input class="field-input" id="postTitle" name="title" required maxlength="120" placeholder="Give your prompt a title" /></div>
-     <div class="field-group"><label class="field-label" for="postCategory">Category</label><select class="field-input" id="postCategory" name="category" required><option value="">Choose a category</option><option>Image</option><option>Video</option><option>Web Gen</option><option>Code</option><option>Writing</option><option>3D Art</option><option>Music</option></select></div>
+     <div class="field-group"><label class="field-label" for="postCategory">Category</label><select class="field-input" id="postCategory" name="category" required><option value="">Choose a category</option><option>UI Design</option><option>Branding</option><option>Typography</option><option>Illustration</option><option>AI Photography</option><option>Image</option><option>Video</option><option>Web Gen</option><option>Code</option><option>Writing</option><option>3D Art</option><option>Music</option></select></div>
+<div id="remixCredit" class="pv-credit" hidden></div>
+<div class="field-group"><label class="field-label" for="postDescription">Short description</label><textarea class="field-input" id="postDescription" maxlength="500" placeholder="What did you make?"></textarea></div>
+<div class="field-group"><label class="field-label" for="postTool">AI tool / design software</label><input class="field-input" id="postTool" maxlength="80" placeholder="Midjourney, ChatGPT, Figma..." /></div>
+<div class="field-group"><label class="field-label" for="postTags">Tags (comma separated, up to 8)</label><input class="field-input" id="postTags" maxlength="240" placeholder="minimal, editorial, warm colors" /></div>
+<div class="field-group"><label class="field-label" for="postNotes">Process notes (optional)</label><textarea class="field-input" id="postNotes" maxlength="4000" placeholder="Settings, steps and tips to recreate this result"></textarea></div>
+<div class="field-group"><label class="field-label" for="postRefs">Reference images (optional, up to 4 HTTPS URLs, one per line)</label><textarea class="field-input" id="postRefs" maxlength="2000" placeholder="https://..."></textarea></div>
      <div class="field-group"><label class="field-label" for="postText">Prompt text</label><textarea class="field-input" id="postText" name="text" required maxlength="20000" placeholder="Write the full prompt here..."></textarea></div>
      <div class="field-group">
       <label class="field-label" for="postMedia">Photo or video <span class="community-note">(optional)</span></label>
@@ -568,7 +574,7 @@ button:disabled{cursor:wait;opacity:.55}.toast{white-space:normal;max-width:calc
       <div class="upload-progress-label"><span id="uploadProgressLabel">Uploading attachment</span><span class="upload-progress-percent" id="uploadPercent">0%</span></div>
       <div class="upload-progress-track" id="uploadProgressTrack" role="progressbar" aria-label="Attachment upload" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="upload-progress-fill" id="uploadProgressFill"></div></div>
      </div>
-     <button class="btn-auth-submit" id="postSubmit" type="submit">Publish prompt</button>
+     <button class="btn-auth-submit" id="postSubmit" type="submit">Publish project</button>
     </form>
     <p id="postStatus" class="form-status" role="status" aria-live="polite"></p>
    </aside>
@@ -665,7 +671,7 @@ function chooseMedia(){
 function setPostingBusy(busy){
  document.querySelectorAll('#postForm input,#postForm select,#postForm textarea,#postForm button,#headerSignOut,.community-signout').forEach(el=>el.disabled=busy);
  document.getElementById('postSubmit').disabled=busy||!communityUser;
- document.getElementById('postSubmit').textContent=busy?'Publishing...':'Publish prompt';
+ document.getElementById('postSubmit').textContent=busy?'Publishing...':'Publish project';
 }
 function mediaUploadError(error){
  if(error.name==='AbortError')return 'The upload timed out. Check your connection and try again. Your text is still here.';
@@ -837,7 +843,7 @@ async function publishPrompt(event){
  const user=communityAuth&&communityAuth.currentUser;
  if(!user){setPostStatus('Please sign in with Google before posting a prompt.',true);openAuthModal();return;}
  const title=document.getElementById('postTitle').value.trim(),category=document.getElementById('postCategory').value,text=document.getElementById('postText').value.trim();
- if(!title||!text||title.length>120||text.length>20000||!['Image','Video','Web Gen','Code','Writing','3D Art','Music'].includes(category)){setPostStatus('Add a title, choose a category, and write your prompt before posting.',true);return;}
+ if(!title||!text||title.length>120||text.length>20000||!['UI Design', 'Branding', 'Typography', 'Illustration', 'AI Photography', 'Image', 'Video', 'Web Gen', 'Code', 'Writing', '3D Art', 'Music'].includes(category)){setPostStatus('Add a title, choose a category, and write your prompt before posting.',true);return;}
  if(!navigator.onLine){setPostStatus('You are offline. Reconnect before publishing your prompt.',true);return;}
  const file=selectedMedia;
  if(file){const error=mediaValidation(file);if(error){setPostStatus(error,true);return;}}
@@ -853,6 +859,7 @@ async function publishPrompt(event){
    }
    data.mediaUrl=uploadedMedia.mediaUrl;data.mediaType=uploadedMedia.mediaType;
   }
+  Object.assign(data,PV.postData());
   phase='publish';
   if(!communityAuth.currentUser||communityAuth.currentUser.uid!==user.uid){setPostStatus('Your sign-in changed. Please sign in again before publishing. Your text is still here.',true);return;}
   setUploadProgress(100,'Posting your prompt...',true);setPostStatus('Posting your prompt...');
@@ -861,12 +868,12 @@ async function publishPrompt(event){
   const doc=communityDB.collection('prompts').doc();
   await doc.set(data);
   // Clear filters so the newly published card cannot be hidden by a search/category.
-  currentCategory='All';currentSearch='';
+  currentCategory='All';currentSearch='';document.getElementById('pvCommunitySearch').value='';document.getElementById('pvCommunityCategory').value='All';
   const search=document.getElementById('searchInput');if(search)search.value='';
   document.querySelectorAll('.pill').forEach(pill=>pill.classList.toggle('active',pill.dataset.cat==='All'));
   renderCommunity();
   const visible=await waitForPublishedPrompt(doc.id);
-  document.getElementById('postForm').reset();clearMedia();document.getElementById('uploadProgress').hidden=true;
+  document.getElementById('postForm').reset();PV.clearRemix();clearMedia();document.getElementById('uploadProgress').hidden=true;
   setPostStatus(visible?'Your prompt is published and visible in the feed.':'Your prompt was saved, but the feed is still reconnecting. Do not publish it again. Refresh to see it.');
   showToast(visible?'Prompt published.':'Prompt saved. Feed is reconnecting.');
  }catch(error){if(phase==='upload'){document.getElementById('uploadProgress').classList.add('error');document.getElementById('uploadProgress').classList.remove('waiting');document.getElementById('uploadProgressLabel').textContent='Upload failed';}else document.getElementById('uploadProgress').hidden=true;setPostStatus(phase==='upload'?mediaUploadError(error):error.code==='permission-denied'?'Your prompt was not published. Sign in again and try once more. Your text is still here.':'Your prompt was not published. Please check your connection and try again. Your text is still here.',true);}
@@ -875,12 +882,12 @@ async function publishPrompt(event){
 }
 function renderCommunity(){
  const grid=document.getElementById('communityFeed');if(!grid)return;grid.replaceChildren();
- const filtered=communityPosts.filter(p=>[p.title,p.text,p.category].every(v=>typeof v==='string')).filter(p=>(currentCategory==='All'||p.category===currentCategory)&&(!currentSearch||[p.title,p.text,p.category,p.authorName].some(v=>typeof v==='string'&&v.toLowerCase().includes(currentSearch))));
+ const filtered=communityPosts.filter(p=>[p.title,p.text,p.category].every(v=>typeof v==='string')).filter(p=>(currentCategory==='All'||p.category===currentCategory)&&(!currentSearch||[p.title,p.text,p.category,p.authorName,p.tool,(p.tags||[]).join(" ")].some(v=>typeof v==='string'&&v.toLowerCase().includes(currentSearch))));
  document.getElementById('communityCount').textContent=filtered.length+' community prompt'+(filtered.length===1?'':'s');
  const empty=document.getElementById('communityEmpty');empty.hidden=!feedLoaded||!!filtered.length;
  empty.textContent=communityPosts.length?'No community prompts match your search.':'No community prompts yet. Be the first to share one.';
  for(const post of filtered){
-  const card=document.createElement('article');card.className='community-card';
+  const card=document.createElement('article');card.className='community-card';card.dataset.projectId=post.id;
   const meta=document.createElement('div');meta.className='community-meta';
   const name=document.createElement(post.authorId?'a':'span');name.textContent=typeof post.authorName==='string'?post.authorName:'Community member';
   if(post.authorId){name.href='profile.html?u='+encodeURIComponent(post.authorId);name.className='author-link';}
@@ -954,5 +961,5 @@ function showToast(msg,type="default"){
 
 
 </script>
-</body>
+<script src="creative.js"></script></body>
 </html>

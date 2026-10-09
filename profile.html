@@ -523,7 +523,7 @@ button:disabled{cursor:wait;opacity:.55}.toast{white-space:normal;max-width:calc
 .follow-btn:hover{opacity:.88}.follow-btn:focus-visible{outline:2px solid var(--black);outline-offset:3px}.follow-btn:disabled{opacity:.6}.follow-btn[hidden]{display:none}
 @media(max-width:600px){.profile-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.tile-preview{padding:14px}.tile-excerpt{font-size:11px;line-height:1.7;-webkit-line-clamp:5}.tile-info{padding:10px}.tile-info h3{font-size:13px}.profile-history-note{font-size:12px}.profile-intro{margin-top:24px}}
 </style>
-</head><body>
+<link rel="stylesheet" href="creative.css" /></head><body>
 <header class="header" id="header">
   <div class="header-inner">
     <a class="logo" href="index.html">
@@ -605,7 +605,7 @@ function renderProfile(){
  document.getElementById('profileCount').textContent=profilePosts.length;renderFollow();
  const grid=document.getElementById('profileFeed');grid.replaceChildren();
  for(const post of profilePosts){
-  const card=document.createElement('button');card.type='button';card.className='profile-tile';card.setAttribute('aria-label','Open prompt: '+post.title);card.onclick=()=>openPrompt(post);
+  const card=document.createElement('button');card.type='button';card.className='profile-tile';card.dataset.projectId=post.id;card.setAttribute('aria-label','Open prompt: '+post.title);card.onclick=()=>openPrompt(post);
   const preview=document.createElement('div');preview.className='tile-preview';const url=safeMediaUrl(post.mediaUrl);
   if(url&&['image','video'].includes(post.mediaType)){
    const media=document.createElement(post.mediaType==='image'?'img':'video');media.src=url;media.className='tile-media';media.setAttribute('aria-hidden','true');if(post.mediaType==='image'){media.alt='';media.loading='lazy';}else{media.muted=true;media.playsInline=true;media.preload='metadata';const badge=document.createElement('span');badge.className='tile-video';badge.textContent='▶ Video';preview.append(badge);}
@@ -657,4 +657,4 @@ document.addEventListener('DOMContentLoaded',()=>{
   },()=>setFeedStatus('This profile could not connect. Check your connection and refresh.',true));
  }catch{setFeedStatus('This profile could not load. Please refresh and try again.',true);}
 });
-</script></body></html>
+</script><script src="creative.js"></script></body></html>
