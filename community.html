@@ -554,6 +554,7 @@ button:disabled{cursor:wait;opacity:.55}.toast{white-space:normal;max-width:calc
     <form id="postForm" hidden>
      <div class="field-group"><label class="field-label" for="postTitle">Title</label><input class="field-input" id="postTitle" name="title" required maxlength="120" placeholder="Give your prompt a title" /></div>
      <div class="field-group"><label class="field-label" for="postCategory">Category</label><select class="field-input" id="postCategory" name="category" required><option value="">Choose a category</option><option>UI Design</option><option>Branding</option><option>Typography</option><option>Illustration</option><option>AI Photography</option><option>Image</option><option>Video</option><option>Web Gen</option><option>Code</option><option>Writing</option><option>3D Art</option><option>Music</option></select></div>
+<div class="field-group"><label class="field-label" for="postVisibility">Who can see this project</label><select class="field-input" id="postVisibility" name="visibility"><option value="public">Public - everyone can see and remix it</option><option value="private">Private - only me (find it in My Vault)</option></select></div>
 <div id="remixCredit" class="pv-credit" hidden></div>
 <div class="field-group"><label class="field-label" for="postDescription">Short description</label><textarea class="field-input" id="postDescription" maxlength="500" placeholder="What did you make?"></textarea></div>
 <div class="field-group"><label class="field-label" for="postTool">AI tool / design software</label><input class="field-input" id="postTool" maxlength="80" placeholder="Midjourney, ChatGPT, Figma..." /></div>
@@ -865,17 +866,18 @@ async function publishPrompt(event){
   setUploadProgress(100,'Posting your prompt...',true);setPostStatus('Posting your prompt...');
   document.getElementById('postSubmit').textContent='Posting...';
   // A stable document ID lets us wait for the actual feed without submitting twice.
-  const doc=communityDB.collection('prompts').doc();
+  const isPrivate=data.visibility==='private';
+  const doc=communityDB.collection(isPrivate?'privateProjects':'prompts').doc();
   await doc.set(data);
   // Clear filters so the newly published card cannot be hidden by a search/category.
   currentCategory='All';currentSearch='';document.getElementById('pvCommunitySearch').value='';document.getElementById('pvCommunityCategory').value='All';
   const search=document.getElementById('searchInput');if(search)search.value='';
   document.querySelectorAll('.pill').forEach(pill=>pill.classList.toggle('active',pill.dataset.cat==='All'));
   renderCommunity();
-  const visible=await waitForPublishedPrompt(doc.id);
+  const visible=isPrivate?true:await waitForPublishedPrompt(doc.id);
   document.getElementById('postForm').reset();PV.clearRemix();clearMedia();document.getElementById('uploadProgress').hidden=true;
-  setPostStatus(visible?'Your prompt is published and visible in the feed.':'Your prompt was saved, but the feed is still reconnecting. Do not publish it again. Refresh to see it.');
-  showToast(visible?'Prompt published.':'Prompt saved. Feed is reconnecting.');
+  setPostStatus(isPrivate?'Saved as a private project. Only you can see it in My Vault.':visible?'Your prompt is published and visible in the feed.':'Your prompt was saved, but the feed is still reconnecting. Do not publish it again. Refresh to see it.');
+  showToast(isPrivate?'Saved privately to My Vault.':visible?'Prompt published.':'Prompt saved. Feed is reconnecting.');
  }catch(error){if(phase==='upload'){document.getElementById('uploadProgress').classList.add('error');document.getElementById('uploadProgress').classList.remove('waiting');document.getElementById('uploadProgressLabel').textContent='Upload failed';}else document.getElementById('uploadProgress').hidden=true;setPostStatus(phase==='upload'?mediaUploadError(error):error.code==='permission-denied'?'Your prompt was not published. Sign in again and try once more. Your text is still here.':'Your prompt was not published. Please check your connection and try again. Your text is still here.',true);}
  finally{posting=false;setPostingBusy(false);document.getElementById('postForm').removeAttribute('aria-busy');}
 
